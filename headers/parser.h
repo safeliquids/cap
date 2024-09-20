@@ -46,9 +46,8 @@ ArgumentParser * cap_parser_make_empty() {
         .mPositionals = NULL,
         .mPositionalCount = 0u,
         .mPositionalAlloc = 0u,
-        .mFlagPrefixChars = NULL,
-        .mFlagSeparator = NULL,
-        .mUseFlagSeparator = true
+        .mFlagPrefixChars = copy_string("-"),
+        .mFlagSeparator = copy_string("--")
     };
     return p;
 }
@@ -133,9 +132,13 @@ void cap_parser_set_flag_prefix(
     }
     free(parser -> mFlagPrefixChars);
     parser -> mFlagPrefixChars = copy_string(prefix_chars);
-    free(parser -> mFlagSeparator);
-    parser -> mFlagSeparator = NULL;
-    parser -> mUseFlagSeparator = true;
+    if (parser -> mFlagSeparator) {
+        free(parser -> mFlagSeparator);
+    }
+    char * s = (char *) malloc(3 * sizeof(char));
+    s[0] = s[1] = *prefix_chars;
+    s[2] = 0;
+    parser -> mFlagSeparator = s;
     return;
 }
 
@@ -164,23 +167,20 @@ void cap_parser_set_flag_separator(
         ArgumentParser * parser, const char * separator) {
     if (!parser) return;
     if (!separator) {
-        if (!parser -> mUseFlagSeparator) return;
-        free(parser -> mFlagSeparator);
-        parser -> mFlagSeparator = NULL;
-        parser -> mUseFlagSeparator = false;
+        if (parser -> mFlagSeparator) {
+            free(parser -> mFlagSeparator);
+        }
         return;
     }
     if (strlen(separator) == 0) {
         fprintf(stderr, "cap: missing flag separator\n");
         exit(-1);
     }
-    if (parser -> mUseFlagSeparator) {
+    if (parser -> mFlagSeparator) {
         free(parser -> mFlagSeparator);
     }
-    parser -> mUseFlagSeparator = true;
     parser -> mFlagSeparator = copy_string(separator);
 }
-
 
 // ============================================================================
 // === PARSER: ADDING FLAGS ===================================================
@@ -193,7 +193,9 @@ void cap_parser_set_flag_separator(
  * be unique and the program exits with an error if a duplicate flag name is 
  * given. The flag name must begin with a flag prefix character, either the 
  * default '-' or one of the characters previously configured using 
- * `cap_parser_set_flag_prefix`.
+ * `cap_parser_set_flag_prefix`. Flag names may not be identical to the flag 
+ * separator, either the default '--', or one configured using 
+ * `cap_parser_set_flag_separator`.
  * 
  * The `type` parameter specifies the type of the value stored in this flag. 
  * The type `DT_PRESENCE` should be used if a flag should not store any 
@@ -221,8 +223,8 @@ void cap_parser_set_flag_separator(
 void cap_parser_add_flag(
         ArgumentParser * parser, const char * flag, DataType type, 
         int min_count, int max_count) {
-    const char * flag_prefix = parser -> mFlagPrefixChars;
-    if (!flag_prefix) flag_prefix = "-";
+    const char * const flag_prefix = parser -> mFlagPrefixChars;
+    const char * const flag_separator = parser -> mFlagSeparator;
     if (!parser) {
         fprintf(stderr, "cap: missing parser\n");
         exit(-1);
@@ -233,8 +235,14 @@ void cap_parser_add_flag(
     }
     if (!strchr(flag_prefix, *flag)) {
         fprintf(
-            stderr, "cap: invalid flag name (must begin with one of \"%s\")\n",
+            stderr, "cap: invalid flag name - must begin with one of \"%s\"\n",
             flag_prefix);
+        exit(-1);
+    }
+    if (flag_separator && strcmp(flag_separator, flag) == 0) {
+        fprintf(
+            stderr, "cap: invalid flag name - flag names may not be identical "
+            "to the flag separato \"%s\"\n", flag_separator);
         exit(-1);
     }
     if (min_count < 0) {
@@ -364,19 +372,10 @@ ParsingResult cap_parser_parse_noexit(
     };
     
     // set up flag prefix characters and flag separator
-    const char * prefix_chars = parser -> mFlagPrefixChars;
-    if (!prefix_chars) {
-        prefix_chars = "-";
-    }
-    char * flag_separator = parser -> mFlagSeparator;
-    bool flag_separator_is_generated = false;
-    if (!flag_separator && parser -> mUseFlagSeparator) {
-        // generate one!
-        flag_separator_is_generated = true;
-        flag_separator = (char *) malloc(3 * sizeof(char));
-        flag_separator[0] = flag_separator[1] = *prefix_chars;
-        flag_separator[2] = 0;
-    }
+    // prefix chars should always exist even if not explicitly configured.
+    // flag separator always exists if it is not disabled.
+    const char * const prefix_chars = parser -> mFlagPrefixChars;
+    const char * const flag_separator = parser -> mFlagSeparator;
 
     int index = 0;
     bool positional_only = false;
@@ -389,7 +388,7 @@ ParsingResult cap_parser_parse_noexit(
         const char * arg = argv[index];
         
         // switch to positional-only mode if flag separator is found
-        if (!positional_only && parser -> mUseFlagSeparator \
+        if (!positional_only && flag_separator \
                 && strcmp(arg, flag_separator) == 0) {
             positional_only = true;
             continue;
@@ -484,19 +483,11 @@ ParsingResult cap_parser_parse_noexit(
         goto fail;
     }
 
-    // release memory used for generad flag separator
-    if (flag_separator_is_generated) {
-        free(flag_separator);
-    }
     result.mArguments = parsed_arguments;
     result.mSuccess = true;
     return result;
 
 fail:
-    // release memory used for generad flag separator
-    if (flag_separator_is_generated) {
-        free(flag_separator);
-    }
     cap_pa_destroy(parsed_arguments);
     return result;
 }

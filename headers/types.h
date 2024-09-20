@@ -213,7 +213,6 @@ typedef struct {
 
     char * mFlagPrefixChars;
     char * mFlagSeparator;
-    bool mUseFlagSeparator;
 } ArgumentParser;
 
 /**
