@@ -1,0 +1,7 @@
+.vscode/*
+garb/*
+notes.md
+slicer.exe
+cap.h
+test/bin/*
+test/obj/*
