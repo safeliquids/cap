@@ -45,7 +45,9 @@ ArgumentParser * cap_parser_make_empty() {
         .mFlagAlloc = 0u,
         .mPositionals = NULL,
         .mPositionalCount = 0u,
-        .mPositionalAlloc = 0u
+        .mPositionalAlloc = 0u,
+        .mFlagPrefixChars = copy_string("-"),
+        .mFlagSeparator = copy_string("--")
     };
     return p;
 }
@@ -77,7 +79,107 @@ void cap_parser_destroy(ArgumentParser * parser) {
     parser -> mPositionals = NULL;
     parser -> mFlagCount = parser -> mFlagAlloc = 0u;
     parser -> mPositionalCount = parser -> mPositionalAlloc = 0;
+
+    free(parser -> mFlagPrefixChars);
+    free(parser -> mFlagSeparator);
+
     free(parser);
+}
+
+// ============================================================================
+// === PARSER: GENERAL CONFIGURATION ==========================================
+// ============================================================================
+
+/**
+ * Sets characters to be considered flag-prefix characters.
+ * 
+ * Configures a set of characters to be considered flag-prefixes by the parser.
+ * Any command line word that begins with one of these characters is considered 
+ * a flag unless parsing in positional-only mode, see below. By default, 
+ * '-' (dash) is considered the only prefix character.
+ * 
+ * This also automatically configures a flag called a flag separator. When the
+ * flag separator is found on the command line, the parser enters positional 
+ * only mode. In this mode all command line words are used as positionals even 
+ * if they begin with a flag prefix character. The automatic value created for 
+ * the flag separator is the first character given to this function repeated 
+ * twice (e.g. by default '--'). The flag separator can be afterwards 
+ * explicitly configured or disabled using the `cap_parser_set_flag_separator` 
+ * function.
+ * 
+ * If `parser` is `NULL`, nothing happens. If `prefix_chars` is `NULL` or
+ * empty, the program exits with an error.
+ * 
+ * Note that, this configuration must be done before adding any flags, because 
+ * added flags are required to begin with a flag prefix character. If any flags 
+ * are present when calling this function, the program exits with an error.
+ * 
+ * @param parser parser object to configure
+ * @param prefix_chars null-terminated string of characters that should be considered flag prefixes.
+ */
+void cap_parser_set_flag_prefix(
+        ArgumentParser * parser, const char * prefix_chars) {
+    if (!parser) return;
+    if (!prefix_chars || strlen(prefix_chars) == 0) {
+        fprintf(stderr, "cap: missing flag prefix characters\n");
+        exit(-1);
+    }
+    if (parser -> mFlagCount) {
+        fprintf(
+            stderr, "cap: cannot set flag prefix characters when flags "
+            "already exist\n");
+        exit(-1);
+    }
+    free(parser -> mFlagPrefixChars);
+    parser -> mFlagPrefixChars = copy_string(prefix_chars);
+    if (parser -> mFlagSeparator) {
+        free(parser -> mFlagSeparator);
+    }
+    char * s = (char *) malloc(3 * sizeof(char));
+    s[0] = s[1] = *prefix_chars;
+    s[2] = 0;
+    parser -> mFlagSeparator = s;
+    return;
+}
+
+/**
+ * Sets a flag separator.
+ * 
+ * Configures a parser to recognize a flag separator, or to not have one. A 
+ * flag separator is a special flag that, when found on the command line, puts 
+ * the parser in positional only mode. In this mode all command line words are 
+ * used as positionals even if they begin with a flag prefix character.
+ * 
+ * By default the flag separator is '--' (double dash). It is further 
+ * automatically set using a call to `cap_parser_set_flag_prefix` as the first 
+ * flag prefix character doubled. `cap_parser_set_flag_separator` can be used 
+ * to explicitly choose a different flag separator. Note that, calling 
+ * `cap_parser_set_flag_prefix` after `cap_parser_set_flag_separator` replaces 
+ * the previously configured value.
+ * 
+ * @param parser parser object to configure
+ * @param separator null-terminated string containing the new flag separator.
+ *        If `NULL` is given, the flag separator is explicitly disabled.
+ *        If an empty string is given, the program exits with an error.
+ *        This string is copied into the parser and the caller remains the owner of the given pointer.
+ */
+void cap_parser_set_flag_separator(
+        ArgumentParser * parser, const char * separator) {
+    if (!parser) return;
+    if (!separator) {
+        if (parser -> mFlagSeparator) {
+            free(parser -> mFlagSeparator);
+        }
+        return;
+    }
+    if (strlen(separator) == 0) {
+        fprintf(stderr, "cap: missing flag separator\n");
+        exit(-1);
+    }
+    if (parser -> mFlagSeparator) {
+        free(parser -> mFlagSeparator);
+    }
+    parser -> mFlagSeparator = copy_string(separator);
 }
 
 // ============================================================================
@@ -89,7 +191,11 @@ void cap_parser_destroy(ArgumentParser * parser) {
  * 
  * Registers a new flag in `parser` under the name `flag`. The flag's name must 
  * be unique and the program exits with an error if a duplicate flag name is 
- * given. The flag name must begin with a flag prefix character (i.e. '-'.)
+ * given. The flag name must begin with a flag prefix character, either the 
+ * default '-' or one of the characters previously configured using 
+ * `cap_parser_set_flag_prefix`. Flag names may not be identical to the flag 
+ * separator, either the default '--', or one configured using 
+ * `cap_parser_set_flag_separator`.
  * 
  * The `type` parameter specifies the type of the value stored in this flag. 
  * The type `DT_PRESENCE` should be used if a flag should not store any 
@@ -117,6 +223,8 @@ void cap_parser_destroy(ArgumentParser * parser) {
 void cap_parser_add_flag(
         ArgumentParser * parser, const char * flag, DataType type, 
         int min_count, int max_count) {
+    const char * const flag_prefix = parser -> mFlagPrefixChars;
+    const char * const flag_separator = parser -> mFlagSeparator;
     if (!parser) {
         fprintf(stderr, "cap: missing parser\n");
         exit(-1);
@@ -125,8 +233,16 @@ void cap_parser_add_flag(
         fprintf(stderr, "cap: missing flag name");
         exit(-1);
     }
-    if (*flag != '-') {
-        fprintf(stderr, "cap: invalid flag name (must begin with '-')\n");
+    if (!strchr(flag_prefix, *flag)) {
+        fprintf(
+            stderr, "cap: invalid flag name - must begin with one of \"%s\"\n",
+            flag_prefix);
+        exit(-1);
+    }
+    if (flag_separator && strcmp(flag_separator, flag) == 0) {
+        fprintf(
+            stderr, "cap: invalid flag name - flag names may not be identical "
+            "to the flag separato \"%s\"\n", flag_separator);
         exit(-1);
     }
     if (min_count < 0) {
@@ -207,7 +323,7 @@ void cap_parser_add_positional(
         exit(-1);
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
-        if (strcmp(parser -> mPositionals[i].mName, name)) {
+        if (!strcmp(parser -> mPositionals[i].mName, name)) {
             fprintf(stderr, "cap: duplicate positional argument %s\n", name);
             exit(-1);
         }
@@ -254,6 +370,12 @@ ParsingResult cap_parser_parse_noexit(
         .mSecondErrorWord = NULL,
         .mSuccess = false
     };
+    
+    // set up flag prefix characters and flag separator
+    // prefix chars should always exist even if not explicitly configured.
+    // flag separator always exists if it is not disabled.
+    const char * const prefix_chars = parser -> mFlagPrefixChars;
+    const char * const flag_separator = parser -> mFlagSeparator;
 
     int index = 0;
     bool positional_only = false;
@@ -264,7 +386,16 @@ ParsingResult cap_parser_parse_noexit(
             break;
         }
         const char * arg = argv[index];
-        if (positional_only || arg[0] != '-') {
+        
+        // switch to positional-only mode if flag separator is found
+        if (!positional_only && flag_separator \
+                && strcmp(arg, flag_separator) == 0) {
+            positional_only = true;
+            continue;
+        }
+
+        // TODO: what to do if an arg is empty string?!
+        if (positional_only || !strchr(prefix_chars, arg[0])) {
             // positional
             if (positional_index >= parser -> mPositionalCount) {
                 result.mErrorMessageFormat = "too many arguments";
@@ -280,11 +411,6 @@ ParsingResult cap_parser_parse_noexit(
             }
             cap_pa_set_positional(parsed_arguments, posit_info -> mName, tu);
             ++positional_index;
-            continue;
-        }
-        // switch to positional-only mode if -- flag is found
-        if (strlen(arg) == 2 && arg[1] == '-') {
-            positional_only = true;
             continue;
         }
         // parsing a flag

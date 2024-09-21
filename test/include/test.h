@@ -5,6 +5,8 @@
 
 #define TEST_GROUP(name, fail_fast, quiet, ...) (test_group((name), (fail_fast), (quiet), __VA_ARGS__, NULL))
 
+#define FB(variable) { variable = true; break; }
+
 bool test_group(const char * name, bool fail_fast, bool quiet, ...);
 bool test_single(bool quiet, bool (*test_function)());
 

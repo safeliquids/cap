@@ -210,6 +210,9 @@ typedef struct {
     PositionalInfo * mPositionals;
     size_t mPositionalCount;
     size_t mPositionalAlloc;
+
+    char * mFlagPrefixChars;
+    char * mFlagSeparator;
 } ArgumentParser;
 
 /**
