@@ -1,5 +1,5 @@
 CC:=gcc
-CCFLAGS:=-Wall -Wextra -pedantic -std=c99 -g -I.
+CCFLAGS:=-Wall -Wextra -Wformat-security -pedantic -std=c99 -g -I.
 LD:=gcc
 LDFLAGS:=
 

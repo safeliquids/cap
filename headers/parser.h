@@ -511,7 +511,11 @@ ParsedArguments * cap_parser_parse(
     if (!result.mSuccess) {
         fprintf(stderr, "%s: ", *argv);
         if (!result.mFirstErrorWord) {
-            fprintf(stderr, result.mErrorMessageFormat);
+            // in this case, result.mErrorMessageFormat is not actually
+            // a format string, so it is better to print it this way.
+            // Some compilers generate a warning if the format string in 
+            // printf() is not a literal and there are no format arguments.
+            fprintf(stderr, "%s", result.mErrorMessageFormat);
         }
         else if (!result.mSecondErrorWord) {
             fprintf(stderr, result.mErrorMessageFormat, result.mFirstErrorWord);
