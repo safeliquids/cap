@@ -1,0 +1,19 @@
+name: Testing using Make
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  make-test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: build
+      run: make all
+    - name: test-everything
+      run: make test
