@@ -535,7 +535,7 @@ bool _cap_parse_double(const char * word, double * value) {
     double v;
     int c;
     long long int n;
-    c = sscanf(word, "%lf%zn", &v, &n);
+    c = sscanf(word, "%lf%lln", &v, &n);
     if (c != 1 || (unsigned long long int) n != strlen(word)) {
         return false;
     }
@@ -546,7 +546,7 @@ bool _cap_parse_double(const char * word, double * value) {
 bool _cap_parse_int(const char * word, int * value) {
     int v, c;
     long long int n;
-    c = sscanf(word, "%i%zn", &v, &n);
+    c = sscanf(word, "%i%lln", &v, &n);
     if (c != 1 || (unsigned long long int) n != strlen(word)) {
         return false;
     }
