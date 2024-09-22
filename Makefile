@@ -19,7 +19,8 @@ TEST_SOURCES:=$(patsubst %,$(TEST_SRC_DIR)/%.c,$(TEST_UNITS))
 TEST_OBJS:=$(TEST_OBJ_DIR)/test.o
 TEST_BINS:=$(patsubst %,$(TEST_BIN_DIR)/%.exe,$(TEST_UNITS))
 
-GENERATED:=cap.h slicer.exe $(TEST_BINS) $(TEST_BIN_DIR) $(TEST_OBJS) $(TEST_OBJ_DIR)
+GENERATED:=cap.h slicer.exe $(TEST_BINS) $(TEST_OBJS) 
+GENERATED_DIRS:=$(TEST_BIN_DIR) $(TEST_OBJ_DIR)
 COMMA:=,
 
 all: cap.h
@@ -51,7 +52,10 @@ $(TEST_OBJ_DIR):
 clean:
 ifeq ($(OS), Windows_NT)
 	pwsh -c 'remove-item $(firstword $(GENERATED)) $(patsubst %,$(COMMA) %,$(wordlist 2, 1000, $(GENERATED))) || {};'
+	pwsh -c 'remove-item $(firstword $(GENERATED_DIRS)) $(patsubst %,$(COMMA) %,$(wordlist 2, 1000, $(GENERATED_DIRS))) || {};'
 else
 	rm $(GENERATED)
+	rm $(GENERATED_DIRS)
 endif
+
 .PHONY: all clean test $(TEST_TARGETS)
