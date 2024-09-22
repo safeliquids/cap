@@ -54,8 +54,8 @@ ifeq ($(OS), Windows_NT)
 	pwsh -c 'remove-item $(firstword $(GENERATED)) $(patsubst %,$(COMMA) %,$(wordlist 2, 1000, $(GENERATED))) || {};'
 	pwsh -c 'remove-item $(firstword $(GENERATED_DIRS)) $(patsubst %,$(COMMA) %,$(wordlist 2, 1000, $(GENERATED_DIRS))) || {};'
 else
-	rmdir -f $(GENERATED)
-	rmdir -f $(GENERATED_DIRS)
+	rm -f $(GENERATED)
+	rm -f -d $(GENERATED_DIRS)
 endif
 
 .PHONY: all clean test $(TEST_TARGETS)
