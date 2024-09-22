@@ -16,7 +16,7 @@ bool test_one_positional_int() {
 
     ParsingResult res = cap_parser_parse_noexit(parser, 2, a);
     ParsedArguments * pa = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (!cap_pa_has_positional(pa, name)) goto fail;
     if (!cap_tu_is_int(cap_pa_get_positional(pa, name))) goto fail;
@@ -40,7 +40,7 @@ bool test_one_positional_double() {
 
     ParsingResult res = cap_parser_parse_noexit(parser, 2, a);
     ParsedArguments * pa = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (!cap_pa_has_positional(pa, name)) goto fail;
     if (!cap_tu_is_double(cap_pa_get_positional(pa, name))) goto fail;
@@ -65,7 +65,7 @@ bool test_one_positional_string() {
 
     ParsingResult res = cap_parser_parse_noexit(parser, 2, a);
     ParsedArguments * pa = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (!cap_pa_has_positional(pa, name)) goto fail;
     if (!cap_tu_is_string(cap_pa_get_positional(pa, name))) goto fail;
@@ -89,7 +89,7 @@ bool test_one_positional_missing() {
 
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     ParsedArguments * pa = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
 
     cap_pa_destroy(pa);
@@ -110,7 +110,7 @@ bool test_one_positional_not_parseable_int() {
 
     ParsingResult res = cap_parser_parse_noexit(parser, 2, a);
     ParsedArguments * pa = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
 
     cap_pa_destroy(pa);
@@ -131,7 +131,7 @@ bool test_one_positional_not_parseable_double() {
 
     ParsingResult res = cap_parser_parse_noexit(parser, 2, a);
     ParsedArguments * pa = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
 
     cap_pa_destroy(pa);

@@ -19,7 +19,7 @@ bool test_prefix_default_0() {
     ParsingResult res = cap_parser_parse_noexit(parser, 4, args);
     ParsedArguments * pa = res.mArguments;
     do {
-        if (res.mSuccess) FB(failed)
+        if (res.mError == PER_NO_ERROR) FB(failed)
     } while (false);
 
     cap_pa_destroy(pa);
@@ -44,7 +44,7 @@ bool test_prefix_default_1() {
     ParsingResult res = cap_parser_parse_noexit(parser, 4, args);
     ParsedArguments * pa = res.mArguments;
     do {
-        if (!res.mSuccess) FB(failed)
+        if (res.mError != PER_NO_ERROR) FB(failed)
         if (!res.mArguments) FB(failed)
         if (!cap_pa_has_flag(pa, foo)) FB(failed)
         if (cap_pa_flag_count(pa, foo) != 1u) FB(failed)
@@ -79,7 +79,7 @@ bool test_prefix_default_2() {
     ParsingResult res = cap_parser_parse_noexit(parser, 4, args);
     ParsedArguments * pa = res.mArguments;
     do {
-        if (!res.mSuccess) FB(failed)
+        if (res.mError != PER_NO_ERROR) FB(failed)
         if (!res.mArguments) FB(failed)
         if (!cap_pa_has_flag(pa, foo)) FB(failed)
         if (cap_pa_flag_count(pa, foo) != 2u) FB(failed)
@@ -113,7 +113,7 @@ bool test_prefix_default_3() {
     ParsingResult res = cap_parser_parse_noexit(parser, 4, args);
     ParsedArguments * pa = res.mArguments;
     do {
-        if (res.mSuccess) FB(failed)
+        if (res.mError == PER_NO_ERROR) FB(failed)
     } while (false);
 
     cap_pa_destroy(pa);
@@ -144,7 +144,7 @@ bool test_prefix_default_4() {
     ParsingResult res = cap_parser_parse_noexit(parser, 7, args);
     ParsedArguments * pa = res.mArguments;
     do {
-        if (!res.mSuccess) FB(failed)
+        if (res.mError != PER_NO_ERROR) FB(failed)
         if (!cap_pa_has_flag(pa, foo)) FB(failed)
         if (cap_pa_flag_count(pa, foo) != 2u) FB(failed)
         if (!cap_tu_is_presence(cap_pa_get_flag_i(pa, foo, 0)))FB(failed)
@@ -190,7 +190,7 @@ bool test_prefix_custom_0() {
     ParsingResult res = cap_parser_parse_noexit(parser, 7, args);
     ParsedArguments * pa = res.mArguments;
     do {
-        if (res.mSuccess) FB(failed)
+        if (res.mError == PER_NO_ERROR) FB(failed)
     } while (false);
 
     cap_pa_destroy(pa);
@@ -227,7 +227,7 @@ bool test_prefix_custom_1() {
     ParsingResult res = cap_parser_parse_noexit(parser, 7, args);
     ParsedArguments * pa = res.mArguments;
     do {
-        if (!res.mSuccess) FB(failed)
+        if (res.mError != PER_NO_ERROR) FB(failed)
         if (!cap_pa_has_flag(pa, foo)) FB(failed)
         if (cap_pa_flag_count(pa, foo) != 2u) FB(failed)
         if (!cap_tu_is_presence(cap_pa_get_flag_i(pa, foo, 0)))FB(failed)
@@ -280,7 +280,7 @@ bool test_prefix_custom_2() {
     ParsingResult res = cap_parser_parse_noexit(parser, 7, args);
     ParsedArguments * pa = res.mArguments;
     do {
-        if (!res.mSuccess) FB(failed)
+        if (res.mError != PER_NO_ERROR) FB(failed)
         if (!cap_pa_has_flag(pa, foo)) FB(failed)
         if (cap_pa_flag_count(pa, foo) != 2u) FB(failed)
         if (!cap_tu_is_presence(cap_pa_get_flag_i(pa, foo, 0)))FB(failed)

@@ -49,18 +49,18 @@ bool test_parse_double_flag() {
     
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (cap_pa_has_flag(pa_1, sus_flag)) goto fail;
 
     res = cap_parser_parse_noexit(parser, 2, a);
     pa_2 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
 
     res = cap_parser_parse_noexit(parser, 3, a);
     pa_3 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (!cap_pa_has_flag(pa_3, sus_flag)) goto fail;
     if (cap_pa_flag_count(pa_3, sus_flag) != 1) goto fail;
@@ -96,18 +96,18 @@ bool test_parse_int_flag() {
     
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (cap_pa_has_flag(pa_1, sus_flag)) goto fail;
 
     res = cap_parser_parse_noexit(parser, 2, a);
     pa_2 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
 
     res = cap_parser_parse_noexit(parser, 3, a);
     pa_3 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (!cap_pa_has_flag(pa_3, sus_flag)) goto fail;
     if (cap_pa_flag_count(pa_3, sus_flag) != 1) goto fail;
@@ -143,18 +143,18 @@ bool test_parse_string_flag() {
     
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (cap_pa_has_flag(pa_1, sus_flag)) goto fail;
 
     res = cap_parser_parse_noexit(parser, 2, a);
     pa_2 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
 
     res = cap_parser_parse_noexit(parser, 3, a);
     pa_3 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (!cap_pa_has_flag(pa_3, sus_flag)) goto fail;
     if (cap_pa_flag_count(pa_3, sus_flag) != 1) goto fail;
@@ -191,13 +191,12 @@ bool test_parse_required_flag() {
     cap_parser_add_flag(parser, sus_flag, DT_PRESENCE, 1, 1);
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
-    if (!res.mErrorMessageFormat) goto fail;
 
     res = cap_parser_parse_noexit(parser, 2, a);
     pa_2 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     
     if (!cap_pa_has_flag(pa_2, sus_flag)) goto fail;
@@ -234,13 +233,12 @@ bool test_parse_flag_with_count_checking() {
     cap_parser_add_flag(parser, sus_flag, DT_PRESENCE, 1, 1);
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
-    if (!res.mErrorMessageFormat) goto fail;
 
     res = cap_parser_parse_noexit(parser, 2, a);
     pa_2 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     
     if (!cap_pa_has_flag(pa_2, sus_flag)) goto fail;
@@ -250,9 +248,8 @@ bool test_parse_flag_with_count_checking() {
 
     res = cap_parser_parse_noexit(parser, 3, a);
     pa_3 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
-    if (!res.mErrorMessageFormat) goto fail;
 
     cap_parser_destroy(parser);
     cap_pa_destroy(pa_1);
@@ -286,19 +283,17 @@ bool test_parse_required_int_flag() {
     cap_parser_add_flag(parser, sus_flag, DT_INT, 1, 1);
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
-    if (!res.mErrorMessageFormat) goto fail;
 
     res = cap_parser_parse_noexit(parser, 2, a);
     pa_2 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
-    if (!res.mErrorMessageFormat) goto fail;
     
     res = cap_parser_parse_noexit(parser, 3, a);
     pa_3 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     if (!cap_pa_has_flag(pa_3, sus_flag)) goto fail;
     if (cap_pa_flag_count(pa_3, sus_flag) != 1) goto fail;
@@ -339,13 +334,12 @@ bool test_parse_string_flag_with_count_checking() {
     cap_parser_add_flag(parser, sus_flag, DT_STRING, 1, 1);
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
-    if (!res.mErrorMessageFormat) goto fail;
 
     res = cap_parser_parse_noexit(parser, 3, a);
     pa_2 = res.mArguments;
-    if (!res.mSuccess) goto fail;
+    if (res.mError != PER_NO_ERROR) goto fail;
     if (!res.mArguments) goto fail;
     
     if (!cap_pa_has_flag(pa_2, sus_flag)) goto fail;
@@ -356,9 +350,8 @@ bool test_parse_string_flag_with_count_checking() {
 
     res = cap_parser_parse_noexit(parser, 5, a);
     pa_3 = res.mArguments;
-    if (res.mSuccess) goto fail;
+    if (res.mError == PER_NO_ERROR) goto fail;
     if (res.mArguments) goto fail;
-    if (!res.mErrorMessageFormat) goto fail;
 
     cap_parser_destroy(parser);
     cap_pa_destroy(pa_1);
@@ -394,23 +387,23 @@ bool test_more_count_checking() {
     for (int nums = 0; nums < 11; ++nums) {
         ParsingResult res = cap_parser_parse_noexit(parser, nums * 2 + 1, a);
         pa = res.mArguments;
-        if ((nums < lower_bound || nums > upper_bound) && res.mSuccess) {
+        if ((nums < lower_bound || nums > upper_bound) && res.mError == PER_NO_ERROR) {
             failed = true;
             break;
         }
-        if (nums >= lower_bound && nums <= upper_bound && !res.mSuccess) {
+        if (nums >= lower_bound && nums <= upper_bound && res.mError != PER_NO_ERROR) {
             failed = true;
             break;
         }
-        if (!res.mSuccess && res.mArguments) {
+        if (res.mError != PER_NO_ERROR && res.mArguments) {
             failed = true;
             break;
         }
-        if (res.mSuccess && !res.mArguments) {
+        if (res.mError == PER_NO_ERROR && !res.mArguments) {
             failed = true;
             break;
         }
-        if (!res.mSuccess) {
+        if (res.mError != PER_NO_ERROR) {
             continue;
         }
         // check stored values

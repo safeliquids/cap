@@ -22,7 +22,7 @@ bool test_multiple_optional_flags_1() {
         const char * a[1] = {"program"};
         ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
         pa = res.mArguments;
-        if (!res.mSuccess) {
+        if (res.mError != PER_NO_ERROR) {
             failed = true;
             break;
         }
@@ -56,7 +56,7 @@ bool test_multiple_optional_flags_2() {
         const char * b[2] = {"prog", flag2};
         ParsingResult res = cap_parser_parse_noexit(parser, 2, b);
         pa = res.mArguments;
-        if (!res.mSuccess) {
+        if (res.mError != PER_NO_ERROR) {
             failed = true;
             break;
         }
@@ -93,7 +93,7 @@ bool test_multiple_optional_flags_3() {
         const char * b[3] = {"prog", flag1, "0"};
         ParsingResult res = cap_parser_parse_noexit(parser, 3, b);
         pa = res.mArguments;
-        if (!res.mSuccess) {
+        if (res.mError != PER_NO_ERROR) {
             failed = true;
             break;
         }
@@ -131,7 +131,7 @@ bool test_multiple_optional_flags_4() {
         const char * b[4] = {"prog", flag1, "0", flag2};
         ParsingResult res = cap_parser_parse_noexit(parser, 4, b);
         pa = res.mArguments;
-        if (!res.mSuccess) {
+        if (res.mError != PER_NO_ERROR) {
             failed = true;
             break;
         }
@@ -173,7 +173,7 @@ bool test_multiple_optional_flags_5() {
         const char * a[4] = {"prog", "--three", "0", flag2};
         ParsingResult res = cap_parser_parse_noexit(parser, 4, a);
         pa = res.mArguments;
-        if (res.mSuccess) { failed = true; break; }
+        if (res.mError == PER_NO_ERROR) { failed = true; break; }
         if (res.mArguments) { failed = true; break; }
     } while (false);
     cap_parser_destroy(parser);
@@ -199,7 +199,7 @@ bool test_multiple_optional_flags_6() {
         const char * a[6] = {"prog", flag1, "0", flag2, flag1, "1"};
         ParsingResult res = cap_parser_parse_noexit(parser, 6, a);
         pa = res.mArguments;
-        if (res.mSuccess) {
+        if (res.mError == PER_NO_ERROR) {
             failed = true;
             break;
         }
@@ -229,7 +229,7 @@ bool test_multiple_optional_flags_7() {
         const char * a[8] = {"prog", flag1, "0", flag2, flag1, "1", flag1, "2"};
         ParsingResult res = cap_parser_parse_noexit(parser, 8, a);
         pa = res.mArguments;
-        if (res.mSuccess) {
+        if (res.mError == PER_NO_ERROR) {
             failed = true;
             break;
         }
@@ -259,7 +259,7 @@ bool test_multiple_optional_flags_8() {
         const char * a[7] = {"prog", flag1, "0", flag2, flag1, "1", flag2};
         ParsingResult res = cap_parser_parse_noexit(parser, 7, a);
         pa = res.mArguments;
-        if (res.mSuccess) {
+        if (res.mError == PER_NO_ERROR) {
             failed = true;
             break;
         }
@@ -288,7 +288,7 @@ bool test_multiple_optional_flags_9() {
         const char * a[8] = {"prog", flag2};
         ParsingResult res = cap_parser_parse_noexit(parser, 2, a);
         pa = res.mArguments;
-        if (res.mSuccess) {
+        if (res.mError == PER_NO_ERROR) {
             failed = true;
             break;
         }
@@ -317,7 +317,7 @@ bool test_multiple_optional_flags_10() {
         const char * a[7] = {"prog", flag1, "0", flag1, "1", flag2, "10"};
         ParsingResult res = cap_parser_parse_noexit(parser, 7, a);
         pa = res.mArguments;
-        if (res.mSuccess) {
+        if (res.mError == PER_NO_ERROR) {
             failed = true;
             break;
         }
@@ -348,7 +348,7 @@ bool test_multiple_optional_flags_11() {
         const char * a[9] = {"prog", flag1, "0", flag2, "1", flag2, "10", flag2, "100"};
         ParsingResult res = cap_parser_parse_noexit(parser, 9, a);
         pa = res.mArguments;
-        if (!res.mSuccess) {
+        if (res.mError != PER_NO_ERROR) {
             failed = true;
             break;
         }

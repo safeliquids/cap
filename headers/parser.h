@@ -365,10 +365,9 @@ ParsingResult cap_parser_parse_noexit(
     ParsedArguments * parsed_arguments = cap_pa_make_empty();
     ParsingResult result = (ParsingResult) {
         .mArguments = NULL,
-        .mErrorMessageFormat = NULL,
         .mFirstErrorWord = NULL,
         .mSecondErrorWord = NULL,
-        .mSuccess = false
+        .mError = PER_NO_ERROR
     };
     
     // set up flag prefix characters and flag separator
@@ -398,15 +397,15 @@ ParsingResult cap_parser_parse_noexit(
         if (positional_only || !strchr(prefix_chars, arg[0])) {
             // positional
             if (positional_index >= parser -> mPositionalCount) {
-                result.mErrorMessageFormat = "too many arguments";
+                result.mError = PER_TOO_MANY_POSITIONALS;
                 goto fail;
             }
             const PositionalInfo * posit_info = parser -> mPositionals + positional_index;
             TypedUnion tu;
             if (!_cap_parse_word_as_type(arg, posit_info -> mType, &tu)) {
-                result.mErrorMessageFormat = "cannot parse value '%s' for argument '%s'";
-                result.mFirstErrorWord = arg;
-                result.mSecondErrorWord = posit_info -> mName;
+                result.mError = PER_CANNOT_PARSE_POSITIONAL;
+                result.mFirstErrorWord = posit_info -> mName;
+                result.mSecondErrorWord = arg;
                 goto fail;
             }
             cap_pa_set_positional(parsed_arguments, posit_info -> mName, tu);
@@ -426,7 +425,7 @@ ParsingResult cap_parser_parse_noexit(
             }
         }
         if (!flag_info) {  // no such flag was found
-            result.mErrorMessageFormat = "unknown flag '%s'";
+            result.mError = PER_UNKNOWN_FLAG;
             result.mFirstErrorWord = arg;
             goto fail;
         }
@@ -439,7 +438,7 @@ ParsingResult cap_parser_parse_noexit(
         }
         // parse the next argument according to dtype
         if (index + 1 >= argc) {
-            result.mErrorMessageFormat = "expected a value for flag '%s'";
+            result.mError = PER_MISSING_FLAG_VALUE;
             result.mFirstErrorWord = arg;
             goto fail;
         }
@@ -450,9 +449,9 @@ ParsingResult cap_parser_parse_noexit(
         // but this code isn't directly using them lol.
         TypedUnion tu;
         if (!_cap_parse_word_as_type(value_arg, flag_info -> mType, &tu)) {
-            result.mErrorMessageFormat = "cannot parse value '%s' for flag '%s'";
-            result.mFirstErrorWord = value_arg;
-            result.mSecondErrorWord = arg;
+            result.mError = PER_CANNOT_PARSE_FLAG;
+            result.mFirstErrorWord = arg;
+            result.mSecondErrorWord = value_arg;
             goto fail;
         }
         // very important! must skip the word that was consumed here
@@ -466,12 +465,12 @@ ParsingResult cap_parser_parse_noexit(
         const FlagInfo * flag_info = parser -> mFlags + i;
         size_t real_count = cap_pa_flag_count(parsed_arguments, flag_info -> mName);
         if (real_count < (unsigned int) flag_info -> mMinCount) {
-            result.mErrorMessageFormat = "too few occurences of flag %s";
+            result.mError = PER_NOT_ENOUGH_FLAGS;
             result.mFirstErrorWord = flag_info -> mName;
             goto fail;
         }
         if (flag_info -> mMaxCount >= 0 && real_count > (unsigned int) flag_info -> mMaxCount) {
-            result.mErrorMessageFormat = "too many occurences of flag %s";
+            result.mError = PER_TOO_MANY_FLAGS;
             result.mFirstErrorWord = flag_info -> mName;
             goto fail;
         }
@@ -479,12 +478,11 @@ ParsingResult cap_parser_parse_noexit(
     // positional argument presence is checked here
     // that is easy (for now), because all positionals are required
     if (positional_index < parser -> mPositionalCount) {
-        result.mErrorMessageFormat = "not enought arguments";
+        result.mError = PER_NOT_ENOUGH_POSITIONALS;
         goto fail;
     }
 
     result.mArguments = parsed_arguments;
-    result.mSuccess = true;
     return result;
 
 fail:
@@ -505,30 +503,48 @@ fail:
  * @return pointer to a new `ParsedArguments` object containing information on 
  *         parsed flags and positional arguments.
  */
+
+
+
 ParsedArguments * cap_parser_parse(
         ArgumentParser * parser, int argc, const char ** argv) {
     ParsingResult result = cap_parser_parse_noexit(parser, argc, argv);
-    if (!result.mSuccess) {
-        fprintf(stderr, "%s: ", *argv);
-        if (!result.mFirstErrorWord) {
-            // in this case, result.mErrorMessageFormat is not actually
-            // a format string, so it is better to print it this way.
-            // Some compilers generate a warning if the format string in 
-            // printf() is not a literal and there are no format arguments.
-            fprintf(stderr, "%s", result.mErrorMessageFormat);
-        }
-        else if (!result.mSecondErrorWord) {
-            fprintf(stderr, result.mErrorMessageFormat, result.mFirstErrorWord);
-        }
-        else {
-            fprintf(
-                stderr, result.mErrorMessageFormat, result.mFirstErrorWord,
-                result.mSecondErrorWord);
-        }
-        fprintf(stderr, "\n");
-        exit(-1);
+    if (result.mError == PER_NO_ERROR) {
+        return result.mArguments;
     }
-    return result.mArguments;
+    fprintf(stderr, "%s: ", *argv);
+    switch (result.mError) {
+        case PER_NOT_ENOUGH_POSITIONALS:
+            fprintf(stderr, "not enought arguments");
+            break;
+        case PER_TOO_MANY_POSITIONALS:
+            fprintf(stderr, "too many arguments");
+            break;
+        case PER_CANNOT_PARSE_POSITIONAL:
+            fprintf(stderr, "cannot parse value '%s' for argument '%s'", result.mSecondErrorWord, result.mFirstErrorWord);
+            break;
+        case PER_UNKNOWN_FLAG:
+            fprintf(stderr, "unknown flag '%s'", result.mFirstErrorWord);
+            break;
+        case PER_MISSING_FLAG_VALUE:
+            fprintf(stderr, "missing value for flag '%s'", result.mFirstErrorWord);
+            break;
+        case PER_CANNOT_PARSE_FLAG:
+            fprintf(stderr, "cannot parse value '%s' for flag '%s'", result.mSecondErrorWord, result.mFirstErrorWord);
+            break;
+        case PER_NOT_ENOUGH_FLAGS:
+            fprintf(stderr, "not enough instances of flag '%s'", result.mFirstErrorWord);
+            break;
+        case PER_TOO_MANY_FLAGS:
+            fprintf(stderr, "too many instances of flag '%s'", result.mFirstErrorWord);
+            break;
+        case PER_NO_ERROR:
+        default:
+            assert(false && "unreachable in parsing error checking");
+
+    }
+    fprintf(stderr, "\n");
+    exit(-1);
 }
 
 // ============================================================================

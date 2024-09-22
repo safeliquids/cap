@@ -216,6 +216,69 @@ typedef struct {
 } ArgumentParser;
 
 /**
+ * Identifies a parse-time error.
+ * 
+ * Identifies a parse-time error for the purpose of noexit parsing. The 
+ * function `cap_parser_parse` constructs an error message depending on the 
+ * error type. Each error can supply up to two other words to be insreted into 
+ * the message, such as the name of a flag. If an error type expects any 
+ * additional words, it is written in a comment block above it.
+ */
+typedef enum {
+    /** 
+     * No error.
+     * 
+     * This value is given when parsing was successful.
+     */
+    PER_NO_ERROR,
+    /**
+     * Some required positionals were omitted.
+     */
+    PER_NOT_ENOUGH_POSITIONALS,
+    /**
+     * Too many positionals were given.
+     */
+    PER_TOO_MANY_POSITIONALS,
+    /**
+     * Cannot parse a value given for a positional.
+     * 
+     * Cannot parse a value that was given for a positional argument, with respect to its type. Additional words are the name of the positional and the problematic value.
+     */
+    PER_CANNOT_PARSE_POSITIONAL,
+    /**
+     * An unknown flag was encountered.
+     * 
+     * The parser found an unknown flag. Additional word is the name of the unknown flag.
+     */
+    PER_UNKNOWN_FLAG,
+    /**
+     * No value was given for a flag.
+     * 
+     * A flag with a type other than `DT_PRESENCE` is missing a value. Additional word is the name of the flag.
+     */
+    PER_MISSING_FLAG_VALUE,
+    /**
+     * Cannot parse a value given to a flag.
+     * 
+     * Cannot parse a value that was given for a flag with respect to the flag's type. Additional words are the name of the flag and the problematic value.
+     */
+    PER_CANNOT_PARSE_FLAG,
+    /**
+     * A flag was not given enough times.
+     * 
+     * A flag was given less times than is required by the parser configuration. Additional word is the name of the flag.
+     */
+    PER_NOT_ENOUGH_FLAGS,
+
+    /**
+     * A flag was given too many times.
+     * 
+     * A flag was given more times than is required by the parser configuration. Additional word is the name of the flag.
+     */
+    PER_TOO_MANY_FLAGS
+} ParsingError;
+
+/**
  * Result of argument parsing.
  * 
  * Represents the result of processing command line arguments using
@@ -234,23 +297,21 @@ typedef struct {
 typedef struct {
     /// Result of argument parsing, or `NULL` if an error occured
     ParsedArguments * mArguments;
-    /// `printf`-style format string to use for displaying an error message. 
-    /// Up to two string parameters can be inserted into this error message
-    /// using the `mFirstErrorWord` and `mSecondErrorWord` members. The `%s`
-    /// conversion specifier must be used. This format string is ignored if
-    /// parsing was successful.
-    const char * mErrorMessageFormat;  
+    
     /// first word to be inserted into an error message. 
-    /// If it is `NULL`, it is ignored, and the `mSecondErrorWord` is also ignored.
+    /// The nmeaning of this word depends on `mError`.
     const char * mFirstErrorWord;
-    /// second word to be inserted into an error message. 
-    /// If it is `NULL`, it is ignored.
+    
+    /// second word to be inserted into an error message.
+    /// The nmeaning of this word depends on `mError`.
     const char * mSecondErrorWord;
-    /// success flag of the parsing.
-    /// If `mSuccess` is `true`, `mArguments` must point to a valid 
-    /// `ParsedArguments` object. If it is `false`, `mArguments` must be
-    /// `NULL`.
-    bool mSuccess;
+   
+    /// Type of a parsing error that occured.
+    /// This value indicates to the caller of `cap_parser_parse_noexit` what 
+    /// error message should be created, if any. It also indicates the meaning 
+    /// of `mFirstErrorWord` and `mSecondErrorWord`. `PER_NO_ERROR` indicates 
+    /// successful parsing.
+    ParsingError mError;
 } ParsingResult;
 
 #endif
