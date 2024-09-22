@@ -17,3 +17,5 @@ jobs:
       run: make all
     - name: test-everything
       run: make test
+    - name: clean
+      run: make clean
