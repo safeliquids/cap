@@ -212,6 +212,10 @@ typedef struct {
     char * mDescription;
     char * mEpilogue;
     char * mCustomHelp;
+    char * mCustomUsage;
+
+    bool mEnableHelp;
+    bool mEnableUsage;
 
     FlagInfo * mFlags;
     size_t mFlagCount;
@@ -226,6 +230,7 @@ typedef struct {
 
     size_t mHelpFlagIndex;
     bool mHelpIsConfigured;
+
 } ArgumentParser;
 
 /**

@@ -31,7 +31,10 @@ const char * _cap_type_metavar(DataType type);
 // === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
 // ============================================================================
 
-void cap_parser_set_help_flag(ArgumentParser * parser, const char * name);
+void cap_parser_set_help_flag(
+        ArgumentParser * parser, const char * name, const char * description);
+void cap_parser_enable_help(ArgumentParser * parser, bool enable);
+void cap_parser_enable_usage(ArgumentParser * parser, bool enable);
 
 // ============================================================================
 // === PARSER: CREATION AND DESTRUCTION =======================================
@@ -55,6 +58,9 @@ ArgumentParser * cap_parser_make_empty() {
         .mDescription = NULL,
         .mEpilogue = NULL,
         .mCustomHelp = NULL,
+        .mCustomUsage = NULL,
+        .mEnableHelp = false,
+        .mEnableUsage = false,
         .mFlags = NULL,
         .mFlagCount = 0u,
         .mFlagAlloc = 0u,
@@ -78,7 +84,9 @@ ArgumentParser * cap_parser_make_empty() {
  */
 ArgumentParser * cap_parser_make_default() {
     ArgumentParser * parser = cap_parser_make_empty();
-    cap_parser_set_help_flag(parser, "-h");
+    cap_parser_set_help_flag(parser, "-h", NULL);
+    cap_parser_enable_help(parser, true);
+    cap_parser_enable_usage(parser, true);
     return parser;
 }
 
@@ -326,6 +334,66 @@ void cap_parser_set_custom_help(ArgumentParser * parser, const char * help) {
     _cap_set_string_property(&(parser -> mCustomHelp), help);
 }
 
+/**
+ * Sets a custom usage string.
+ * 
+ * Sets a custom usage message to display instead of an automatically generated 
+ * one. The given text is displayed verbatim whenever a help message is to be 
+ * printed. If `usage` is `NULL`, the parser reverts to generating usage 
+ * automatically. 
+ * 
+ * An empty string should be used if usage should be blank. 
+ * Alternately, usage can be suppressed by calling `cap_parser_enable_usage`.
+ * If usage was previously disabled using `cap_parser_enable_usage(false)`,
+ * it does not get re-enabled by calling this function.
+ * 
+ * @param parser object to configure
+ * @param usage null-terminated verbatim usgage string, or `NULL` to revert to 
+ *        automatic.
+ */
+void cap_parser_set_custom_usage(ArgumentParser * parser, const char * usage) {
+    if (!parser) {
+        return;
+    }
+    _cap_set_string_property(&(parser -> mCustomUsage), usage);
+}
+
+/**
+ * Enables or disable displaying help.
+ * 
+ * Temporarily enables or disables displaying help messages. When disabling 
+ * help by setting `enable` to `false`, information such as program description 
+ * is not removed. Note that, changing any help configuration when displaying 
+ * help is disabled does not re-enable it. Help must be manually re-enabled 
+ * using this function.  
+ * 
+ * @param parser object to configure
+ * @param enable `true` if help should be displayed, `false` if not
+ */
+void cap_parser_enable_help(ArgumentParser * parser, bool enable) {
+    if (!parser) return;
+    parser -> mEnableHelp = enable;
+}
+
+/**
+ * Enables or disable displaying usage.
+ * 
+ * Temporarily enables or disables displaying usage messages. When disabling 
+ * usage by setting `enable` to `false`, information such as custom usage 
+ * is not removed. Note that, changing any related configuration when displaying 
+ * usage is disabled does not re-enable it. Usage must be manually re-enabled 
+ * using this function.  
+ * 
+ * @param parser object to configure
+ * @param enable `true` if usage should be displayed, `false` if not
+ */
+void cap_parser_enable_usage(ArgumentParser * parser, bool enable) {
+    if (!parser) {
+        return;
+    }
+    parser -> mEnableUsage = enable;
+}
+
 // ============================================================================
 // === PARSER: ADDING FLAGS ===================================================
 // ============================================================================
@@ -449,10 +517,16 @@ void cap_parser_add_flag(
  * If a duplicate or otherwise invalid `name` is given, the program exits with
  * an error.
  * 
+ * If `description` is `NULL`, a default is used. If the help flag should have
+ * no description, an empty string should be used instead.
+ * 
  * @param parser object to configure
  * @param name name of the custom help flag
+ * @param description description of the help flag. If it is `NULL`, a default 
+ *        is used.
  */
-void cap_parser_set_help_flag(ArgumentParser * parser, const char * name) {
+void cap_parser_set_help_flag(
+        ArgumentParser * parser, const char * name, const char * description) {
     if (!parser) {
         return;
     }
@@ -487,7 +561,7 @@ void cap_parser_set_help_flag(ArgumentParser * parser, const char * name) {
 
     cap_parser_add_flag(
         parser, name, DT_PRESENCE, 0, -1, NULL, 
-        "Display this help message and exit");
+        description ? description : "Display this help message and exit");
     parser -> mHelpIsConfigured = true;
     parser -> mHelpFlagIndex = parser -> mFlagCount - 1u;
 }
@@ -611,6 +685,14 @@ void cap_parser_print_usage(
         return;
     }
 
+    if (!parser -> mEnableUsage) {
+        return;
+    }
+    if (parser -> mCustomUsage) {
+        fprintf(file, "%s\n", parser -> mCustomUsage);
+        return;
+    }
+
     fprintf(file, "usage:\n");
     fprintf(file, "\t");
     fprintf(file, "%s", cap_parser_get_program_name(parser, argv0));
@@ -684,6 +766,9 @@ void cap_parser_print_usage(
  */
 void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
     if (!parser || !file) {
+        return;
+    }
+    if (!parser -> mEnableHelp) {
         return;
     }
     if (parser -> mCustomHelp) {
