@@ -21,6 +21,20 @@ bool _cap_parse_double(const char * word, double * value);
 bool _cap_parse_int(const char * word, int * value);
 bool _cap_parse_word_as_type(
     const char * word, DataType type, TypedUnion * uninitialized_tu);
+void _cap_set_string_property(char ** property, const char * value);
+void _cap_delete_string_property(char ** property);
+const char * _cap_get_flag_metavar(const FlagInfo * fi);
+const char * _cap_get_posit_metavar(const PositionalInfo * pi);
+const char * _cap_type_metavar(DataType type);
+
+// ============================================================================
+// === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
+// ============================================================================
+
+void cap_parser_set_help_flag(
+        ArgumentParser * parser, const char * name, const char * description);
+void cap_parser_enable_help(ArgumentParser * parser, bool enable);
+void cap_parser_enable_usage(ArgumentParser * parser, bool enable);
 
 // ============================================================================
 // === PARSER: CREATION AND DESTRUCTION =======================================
@@ -40,6 +54,13 @@ bool _cap_parse_word_as_type(
 ArgumentParser * cap_parser_make_empty() {
     ArgumentParser * p = (ArgumentParser *) malloc(sizeof(ArgumentParser));
     *p = (ArgumentParser) {
+        .mProgramName = NULL,
+        .mDescription = NULL,
+        .mEpilogue = NULL,
+        .mCustomHelp = NULL,
+        .mCustomUsage = NULL,
+        .mEnableHelp = false,
+        .mEnableUsage = false,
         .mFlags = NULL,
         .mFlagCount = 0u,
         .mFlagAlloc = 0u,
@@ -47,9 +68,26 @@ ArgumentParser * cap_parser_make_empty() {
         .mPositionalCount = 0u,
         .mPositionalAlloc = 0u,
         .mFlagPrefixChars = copy_string("-"),
-        .mFlagSeparator = copy_string("--")
+        .mFlagSeparator = copy_string("--"),
+        .mHelpFlagIndex = 0u,
+        .mHelpIsConfigured = false
     };
     return p;
+}
+
+/**
+ * Creates a new default parser.
+ * 
+ * Creates a new parser with default configuration. It differs from an empty parser in that it contains exactly one flag - the automatic help flag "-h".
+ * 
+ * @see cap_parser_make_empty
+ */
+ArgumentParser * cap_parser_make_default() {
+    ArgumentParser * parser = cap_parser_make_empty();
+    cap_parser_set_help_flag(parser, "-h", NULL);
+    cap_parser_enable_help(parser, true);
+    cap_parser_enable_usage(parser, true);
+    return parser;
 }
 
 /**
@@ -63,15 +101,32 @@ ArgumentParser * cap_parser_make_empty() {
  */
 void cap_parser_destroy(ArgumentParser * parser) {
     if (!parser) return;
+    if (parser -> mProgramName) {
+        free(parser -> mProgramName);
+        parser -> mProgramName = NULL;
+    }
+    _cap_delete_string_property(&(parser -> mDescription));
+    _cap_delete_string_property(&(parser -> mEpilogue));
+    _cap_delete_string_property(&(parser -> mCustomHelp));
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         FlagInfo * fi = parser -> mFlags + i;
         free(fi -> mName);
         fi -> mName = NULL;
+        if (fi -> mMetaVar) {
+            free(fi -> mMetaVar);
+            fi -> mMetaVar = NULL;
+        }
+        _cap_delete_string_property(&(fi -> mDescription));
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         PositionalInfo * pi = parser -> mPositionals + i;
         free(pi -> mName);
         pi -> mName = NULL;
+        if (pi -> mMetaVar) {
+            free(pi -> mMetaVar);
+            pi -> mMetaVar = NULL;
+        }
+        _cap_delete_string_property(&(pi -> mDescription));
     }
     free(parser -> mFlags);
     free(parser -> mPositionals);
@@ -82,6 +137,8 @@ void cap_parser_destroy(ArgumentParser * parser) {
 
     free(parser -> mFlagPrefixChars);
     free(parser -> mFlagSeparator);
+
+    parser -> mHelpIsConfigured = false;
 
     free(parser);
 }
@@ -182,6 +239,161 @@ void cap_parser_set_flag_separator(
     parser -> mFlagSeparator = copy_string(separator);
 }
 
+/**
+ * Sets the name of the program.
+ * 
+ * Sets the display name of the program for use in help and usage messages.
+ * By default, the program name is constructed from the first command line 
+ * argument.
+ * 
+ * @param parser parser object to configure
+ * @param name null-terminated name of the program. If NULL, the parser is 
+ *        reset to default behaviour (described above).
+ */
+void cap_parser_set_program_name(ArgumentParser * parser, const char * name) {
+    if (!parser) {
+        return;
+    }
+    if (parser -> mProgramName) {
+        free(parser -> mProgramName);
+        parser -> mProgramName = NULL;
+    }
+    if (!name) {
+        return;
+    }
+    parser -> mProgramName = copy_string(name);
+}
+
+/**
+ * Sets the program's description.
+ * 
+ * Sets the description of the program that is displayed at the beginning of 
+ * the automatically generated help message. By default no description is 
+ * printed. A previously configured description can be removed using this 
+ * function by giving `NULL` as the second parameter.
+ * 
+ * If `description` is not `NULL`, a copy of it is created and `parser` becomes
+ * the owner of that copy.
+ * 
+ * @param parser parser object to configure
+ * @param description null-terminated description of the program, or NULL
+ */
+void cap_parser_set_description(ArgumentParser * parser, const char * description) {
+    if (!parser) {
+        return;
+    }
+    _cap_set_string_property(&(parser -> mDescription), description);
+}
+
+/**
+ * Sets the epilogue of the program's help.
+ * 
+ * Sets an epilogue of the program's description which is displayed at the end 
+ * of the automatically generated help message. By default no epilogue is 
+ * printed and a previously configured epilogue can be removed by giving `NULL` 
+ * as the second parameter.
+ * 
+ * If `epilogue` is not `NULL`, a copy of it is created and `parser` becomes 
+ * the owner of that copy.
+ * 
+ * @param parser object to configure
+ * @param epilogue epilogue of the help message, or `NULL`
+ */
+void cap_parser_set_epilogue(ArgumentParser * parser, const char * epilogue) {
+    if (!parser) {
+        return;
+    }
+    _cap_set_string_property(&(parser -> mEpilogue), epilogue);
+}
+
+/**
+ * Sets a custom help message.
+ * 
+ * Sets a custom help message to displays instead of an automatically generated 
+ * one. The given text is displayed verbatim whenever a help message is 
+ * printed. This configuration overrides the configuration done using 
+ * `cap_parser_set_description`, `cap_parser_set_epilogue` and setting metavars 
+ * for flags and arguments for the purposes of displaying a help message. Those
+ * configurations are not removed by calling this function, however.
+ * 
+ * Unlike `cap_parser_set_description`, `cap_parser_set_epilogue`, 
+ * or `cap_parser_set_program_name`, if `help` is `NULL`, the parser is 
+ * configured to automatically generate help messages. An empty help can be
+ * configured by passing an empty string to this function.
+ * 
+ * If `help` is not `NULL`, a copy of it is created and `parser` becomes the 
+ * owner of that copy.
+ * 
+ * @param parser object to configure
+ * @param help custom help message, or `NULL`
+ */
+void cap_parser_set_custom_help(ArgumentParser * parser, const char * help) {
+    if (!parser) {
+        return;
+    }
+    _cap_set_string_property(&(parser -> mCustomHelp), help);
+}
+
+/**
+ * Sets a custom usage string.
+ * 
+ * Sets a custom usage message to display instead of an automatically generated 
+ * one. The given text is displayed verbatim whenever a help message is to be 
+ * printed. If `usage` is `NULL`, the parser reverts to generating usage 
+ * automatically. 
+ * 
+ * An empty string should be used if usage should be blank. 
+ * Alternately, usage can be suppressed by calling `cap_parser_enable_usage`.
+ * If usage was previously disabled using `cap_parser_enable_usage(false)`,
+ * it does not get re-enabled by calling this function.
+ * 
+ * @param parser object to configure
+ * @param usage null-terminated verbatim usgage string, or `NULL` to revert to 
+ *        automatic.
+ */
+void cap_parser_set_custom_usage(ArgumentParser * parser, const char * usage) {
+    if (!parser) {
+        return;
+    }
+    _cap_set_string_property(&(parser -> mCustomUsage), usage);
+}
+
+/**
+ * Enables or disable displaying help.
+ * 
+ * Temporarily enables or disables displaying help messages. When disabling 
+ * help by setting `enable` to `false`, information such as program description 
+ * is not removed. Note that, changing any help configuration when displaying 
+ * help is disabled does not re-enable it. Help must be manually re-enabled 
+ * using this function.  
+ * 
+ * @param parser object to configure
+ * @param enable `true` if help should be displayed, `false` if not
+ */
+void cap_parser_enable_help(ArgumentParser * parser, bool enable) {
+    if (!parser) return;
+    parser -> mEnableHelp = enable;
+}
+
+/**
+ * Enables or disable displaying usage.
+ * 
+ * Temporarily enables or disables displaying usage messages. When disabling 
+ * usage by setting `enable` to `false`, information such as custom usage 
+ * is not removed. Note that, changing any related configuration when displaying 
+ * usage is disabled does not re-enable it. Usage must be manually re-enabled 
+ * using this function.  
+ * 
+ * @param parser object to configure
+ * @param enable `true` if usage should be displayed, `false` if not
+ */
+void cap_parser_enable_usage(ArgumentParser * parser, bool enable) {
+    if (!parser) {
+        return;
+    }
+    parser -> mEnableUsage = enable;
+}
+
 // ============================================================================
 // === PARSER: ADDING FLAGS ===================================================
 // ============================================================================
@@ -211,6 +423,12 @@ void cap_parser_set_flag_separator(
  * required flags, flags that may be given up to once, and similar constructs.
  * If `max_count` is negative, the flag can be read up to any number of times.
  * 
+ * The `metavar` parameter specifies how the value of the flag should be
+ * displayed in usage and help messages. If `NULL` is given, the flag's data 
+ * type is used instead. The `description` parameter provides a short 
+ * explanation of the flag that will be displayd in help messages automatically 
+ * generated by the  parser. If `NULL` is given, no  description is displayed.
+ * 
  * @param parser object to create the flag in
  * @param flag null-terminated name of the new flag, including flag prefix 
  *        charactes (e.g. '-')
@@ -219,10 +437,14 @@ void cap_parser_set_flag_separator(
  *        command line. Must be at least zero.
  * @param max_count maximum number of times the flag may be given on the 
  *        command line. Must be either negative or at least `min_count`.
+ * @param metavar display name of the flag's value in help messages
+ * @param description short description of the flag's meaning to display in 
+ *        automatically generated help messages.
  */
 void cap_parser_add_flag(
         ArgumentParser * parser, const char * flag, DataType type, 
-        int min_count, int max_count) {
+        int min_count, int max_count, const char * metavar,
+        const char * description) {
     const char * const flag_prefix = parser -> mFlagPrefixChars;
     const char * const flag_separator = parser -> mFlagSeparator;
     if (!parser) {
@@ -275,11 +497,73 @@ void cap_parser_add_flag(
     }
     FlagInfo new_flag = (FlagInfo) {
         .mName = copy_string(flag),
+        .mMetaVar = metavar ? copy_string(metavar) : NULL,
+        .mDescription = description ? copy_string(description) : NULL,
         .mType = type,
         .mMinCount = min_count,
         .mMaxCount = max_count
     };
     parser -> mFlags[parser -> mFlagCount++] = new_flag;
+}
+
+/**
+ * Sets a flag for displaying help.
+ * 
+ * Sets a flag that makes the program immediately display help information 
+ * and exit. By default, this flag is "-h", but can be overriden using this 
+ * function.
+ * 
+ * If `name` is `NULL` and a help flag is already configured, it is removed. 
+ * If a duplicate or otherwise invalid `name` is given, the program exits with
+ * an error.
+ * 
+ * If `description` is `NULL`, a default is used. If the help flag should have
+ * no description, an empty string should be used instead.
+ * 
+ * @param parser object to configure
+ * @param name name of the custom help flag
+ * @param description description of the help flag. If it is `NULL`, a default 
+ *        is used.
+ */
+void cap_parser_set_help_flag(
+        ArgumentParser * parser, const char * name, const char * description) {
+    if (!parser) {
+        return;
+    }
+    if (parser -> mHelpIsConfigured) {
+        FlagInfo * help_flag_info = parser -> mFlags + parser -> mHelpFlagIndex;
+        // name is identical -> there's nothing to do
+        if (name && !strcmp(name, help_flag_info -> mName)) {
+            return;
+        }
+        // now we un-configure the existing help flag
+
+        // don't need to check if flagCount > 0 because at least a help flag 
+        // exists
+        FlagInfo * last_flag = parser -> mFlags + parser -> mFlagCount - 1u;
+        _cap_delete_string_property(&(help_flag_info -> mName));
+        _cap_delete_string_property(&(help_flag_info -> mMetaVar));
+        _cap_delete_string_property(&(help_flag_info -> mDescription));
+        if (help_flag_info != last_flag) {
+            *help_flag_info = *last_flag;
+        }
+        --parser -> mFlagCount;
+        parser -> mHelpIsConfigured = false;
+    }
+    
+    // at this moment, the help flag is definitely not configured: either it 
+    // did not exist, or it just got removed.
+
+    // if the goal was to remove the help flag, we end here
+    if (!name) {
+        return;
+    }
+
+    cap_parser_add_flag(
+        parser, name, DT_PRESENCE, 0, -1, NULL, 
+        description ? description : "Display this help message and exit");
+    parser -> mHelpIsConfigured = true;
+    parser -> mHelpFlagIndex = parser -> mFlagCount - 1u;
 }
 
 // ============================================================================
@@ -302,12 +586,22 @@ void cap_parser_add_flag(
  * All positional arguments are required. If any positional arguments are 
  * missing after parsing all command line words, a parse-time error is raised.
  * 
+ * The `metavar` parameter specifies the display name of this argument in help 
+ * and usage messages. If `NULL` is given, the argument's `name` is used 
+ * instead. The `description` parameter specifies a short explanation of the 
+ * argument that will be displayed in help messages automatically generated by 
+ * the parser. If `NULL` is given, no description is displayed.
+ * 
  * @param parser object to configure
  * @param name name of the new argument
  * @param type data type of the new argument
+ * @param metavar display name for this argument in help messages
+ * @param description short description of the argument's meaning to display 
+ *        in automatically generated help messages
  */
 void cap_parser_add_positional(
-        ArgumentParser * parser, const char * name, DataType type) {
+        ArgumentParser * parser, const char * name, DataType type, 
+        const char * metavar, const char * description) {
     if (!parser) {
         fprintf(stderr, "cap: missing parser\n");
         exit(-1);
@@ -337,9 +631,183 @@ void cap_parser_add_positional(
     }
     PositionalInfo new_positional = (PositionalInfo) {
         .mName = copy_string(name),
+        .mMetaVar = metavar ? copy_string(metavar) : NULL,
+        .mDescription = description ? copy_string(description) : NULL,
         .mType = type
     };
     parser -> mPositionals[parser -> mPositionalCount++] = new_positional;
+}
+
+// ============================================================================
+// === PARSER: HELP ===========================================================
+// ============================================================================
+
+/**
+ * Retrieves the program name for this parser.
+ * 
+ * Obtains the custom program name configured in `parser` or guesses the 
+ * executable's name from `argv0` if not name has been configured. If `parser`
+ * has no program name, the part of `argv0' after the right-most path separator
+ * is used. On Windows, both '\' and '/' are considered path separators.
+ * 
+ * @param parser parser object to consult
+ * @param argv0 first word on the command line
+ * @return configured or estimated program name
+ */
+const char * cap_parser_get_program_name(const ArgumentParser * parser, const char * argv0) {
+    if (parser -> mProgramName) {
+        return parser -> mProgramName;
+    }
+    const char * program_name = argv0;
+    const char * slash = strrchr(argv0, '/');
+    if (slash) {
+        program_name = slash + 1;
+    }
+#ifdef _WIN32
+    const char * backslash = strrchr(argv0, '\\');
+    if (backslash && backslash > slash) {
+        program_name = backslash + 1;
+    }
+#endif
+    return program_name;
+}
+
+/**
+ * Prints a usage string.
+ * 
+ * Prints a usage string to `file` based on the flags and arguments configured
+ * in `parser`.
+ */
+void cap_parser_print_usage(
+        const ArgumentParser * parser, FILE * file,
+        const char * argv0) {
+    if (!parser || !file) {
+        return;
+    }
+
+    if (!parser -> mEnableUsage) {
+        return;
+    }
+    if (parser -> mCustomUsage) {
+        fprintf(file, "%s\n", parser -> mCustomUsage);
+        return;
+    }
+
+    fprintf(file, "usage:\n");
+    fprintf(file, "\t");
+    fprintf(file, "%s", cap_parser_get_program_name(parser, argv0));
+
+    for (size_t i = 0; i < parser -> mFlagCount; ++i) {
+        const FlagInfo * fi = parser -> mFlags + i;
+        fputc(' ', file);
+        if (fi -> mMinCount == 0) {
+            fputc('[', file);
+        }
+        fprintf(file, "%s", fi -> mName);
+        do {
+            if (fi -> mType == DT_PRESENCE) break;
+            if (fi -> mMetaVar) {
+                fprintf(file, " %s", fi -> mMetaVar);
+                break;
+            }
+            const char * type_metavar;
+            switch (fi -> mType) {
+                case DT_DOUBLE:
+                    type_metavar = "DOUBLE";
+                    break;
+                case DT_INT:
+                    type_metavar = "INT";
+                    break;
+                case DT_STRING:
+                    type_metavar = "STRING";
+                    break;
+                case DT_PRESENCE:
+                default:
+                    type_metavar = NULL;
+            }
+            if (type_metavar) {
+                fprintf(file, " %s", type_metavar);
+            }
+        } while (false);
+        if (fi -> mMinCount == 0) {
+            fputc(']', file);
+        }
+    }
+
+    if (parser -> mPositionalCount > 0u && parser -> mFlagSeparator) {
+        fprintf(file, " [%s]", parser -> mFlagSeparator);
+    }
+    for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
+        const PositionalInfo * pi = parser -> mPositionals + i;
+        if (pi -> mMetaVar) {
+            fprintf(file, " %s", pi -> mMetaVar);
+            continue;
+        }
+        fprintf(file, " <%s>", pi -> mName);
+    }
+    fputc('\n', file);
+}
+
+/**
+ * Prints a help message.
+ * 
+ * Prints a help message to `file`. This message is either set explicitly using
+ * `cap_parser_set_custom_help`, or generated based on flag/argument 
+ * configuration of `parser`.
+ * 
+ * @param parser parser to generate or extract the help message from
+ * @param file write the message here
+ * 
+ * @see cap_parser_set_custom_help
+ * @see cap_parser_set_description
+ * @see cap_parser_set_epilogue
+ * @see cap_parser_add_flag
+ * @see cap_parser_add_positional
+ */
+void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
+    if (!parser || !file) {
+        return;
+    }
+    if (!parser -> mEnableHelp) {
+        return;
+    }
+    if (parser -> mCustomHelp) {
+        fprintf(file, "%s\n", parser -> mCustomHelp);
+        return;
+    }
+    if (parser -> mDescription) {
+        fprintf(file, "%s\n", parser -> mDescription);
+    }
+    if (parser -> mFlagCount) {
+        fprintf(file, "\nAvailable flags:\n");
+    }
+    for (size_t i = 0; i < parser -> mFlagCount; ++i) {
+        const FlagInfo * fi = parser -> mFlags + i;
+        fprintf(file, "\t%s", fi -> mName);
+        if (fi -> mType != DT_PRESENCE) {
+            fprintf(file, " %s", _cap_get_flag_metavar(fi));
+        }
+        if (fi -> mDescription) {
+            fprintf(file, "\t%s", fi -> mDescription);
+        }
+        fputc('\n', file);
+    }
+
+    if (parser -> mPositionalCount) {
+        fprintf(file, "\nPositional Arguments:\n");
+    }
+    for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
+        const PositionalInfo * pi = parser -> mPositionals + i;
+        fprintf(file, "\t%s", _cap_get_posit_metavar(pi));
+        if (pi -> mDescription) {
+            fprintf(file, "\t%s", pi -> mDescription);
+        }
+        fputc('\n', file);
+    }
+
+    if (parser -> mEpilogue) {
+        fprintf(file, "\n%s\n", parser -> mEpilogue);
+    }
 }
 
 // ============================================================================
@@ -376,6 +844,9 @@ ParsingResult cap_parser_parse_noexit(
     const char * const prefix_chars = parser -> mFlagPrefixChars;
     const char * const flag_separator = parser -> mFlagSeparator;
 
+    const FlagInfo * const help_flag_info = parser -> mHelpIsConfigured 
+        ? parser -> mFlags + parser -> mHelpFlagIndex : NULL;
+
     int index = 0;
     bool positional_only = false;
     size_t positional_index = 0;
@@ -387,7 +858,7 @@ ParsingResult cap_parser_parse_noexit(
         const char * arg = argv[index];
         
         // switch to positional-only mode if flag separator is found
-        if (!positional_only && flag_separator \
+        if (!positional_only && flag_separator
                 && strcmp(arg, flag_separator) == 0) {
             positional_only = true;
             continue;
@@ -416,9 +887,9 @@ ParsingResult cap_parser_parse_noexit(
 
         // 1. is this a flag that exists?
         size_t i = 0;
-        FlagInfo * flag_info = NULL;
+        const FlagInfo * flag_info = NULL;
         for ( ; i < parser -> mFlagCount; ++i) {
-            FlagInfo * x = parser -> mFlags + i;
+            const FlagInfo * x = parser -> mFlags + i;
             if (strcmp(x -> mName, arg) == 0) {
                 flag_info = x;
                 break;
@@ -430,7 +901,13 @@ ParsingResult cap_parser_parse_noexit(
             goto fail;
         }
 
-        // 2. check data type and try to parse it
+        // 2. is this the help flag?
+        if (flag_info == help_flag_info) {
+            result.mError = PER_HELP;
+            goto fail;
+        }
+
+        // 3. check data type and try to parse it
         DataType dtype = flag_info -> mType;
         if (dtype == DT_PRESENCE) {
             cap_pa_add_flag(parsed_arguments, arg, cap_tu_make_presence());
@@ -456,7 +933,7 @@ ParsingResult cap_parser_parse_noexit(
         }
         // very important! must skip the word that was consumed here
         index++;
-        // 3. add this new value for the flag
+        // 4. add this new value for the flag
         cap_pa_add_flag(parsed_arguments, arg, tu);
     }
 
@@ -503,19 +980,22 @@ fail:
  * @return pointer to a new `ParsedArguments` object containing information on 
  *         parsed flags and positional arguments.
  */
-
-
-
 ParsedArguments * cap_parser_parse(
         ArgumentParser * parser, int argc, const char ** argv) {
     ParsingResult result = cap_parser_parse_noexit(parser, argc, argv);
     if (result.mError == PER_NO_ERROR) {
         return result.mArguments;
     }
-    fprintf(stderr, "%s: ", *argv);
+    if (result.mError == PER_HELP) {
+        cap_parser_print_usage(parser, stdout, *argv);
+        putchar('\n');
+        cap_parser_print_help(parser, stdout);
+        exit(0);
+    }
+    fprintf(stderr, "%s: ", cap_parser_get_program_name(parser, *argv));
     switch (result.mError) {
         case PER_NOT_ENOUGH_POSITIONALS:
-            fprintf(stderr, "not enought arguments");
+            fprintf(stderr, "not enough arguments");
             break;
         case PER_TOO_MANY_POSITIONALS:
             fprintf(stderr, "too many arguments");
@@ -538,12 +1018,14 @@ ParsedArguments * cap_parser_parse(
         case PER_TOO_MANY_FLAGS:
             fprintf(stderr, "too many instances of flag '%s'", result.mFirstErrorWord);
             break;
+        case PER_HELP:
         case PER_NO_ERROR:
         default:
             assert(false && "unreachable in parsing error checking");
 
     }
-    fprintf(stderr, "\n");
+    fprintf(stderr, "\n\n");
+    cap_parser_print_usage(parser, stderr, *argv);
     exit(-1);
 }
 
@@ -601,6 +1083,64 @@ bool _cap_parse_word_as_type(
             break;
     }
     return false;
+}
+
+void _cap_set_string_property(char ** property, const char * value) {
+    if (*property) {
+        free(*property);
+        *property = NULL;
+    }
+    if (!value) {
+        return;
+    }
+    *property = copy_string(value);
+}
+
+void _cap_delete_string_property(char ** property) {
+    if (!*property) {
+        return;
+    }
+    free(*property);
+    *property = NULL;
+}
+
+const char * _cap_get_flag_metavar(const FlagInfo * fi) {
+    if (!fi || fi -> mType == DT_PRESENCE) {
+        return NULL;
+    }
+    if (fi -> mMetaVar) {
+        return fi -> mMetaVar;
+    }
+    return _cap_type_metavar(fi -> mType);
+}
+
+const char * _cap_get_posit_metavar(const PositionalInfo * pi) {
+    if (!pi) {
+        return NULL;
+    }
+    if (pi -> mMetaVar) {
+        return pi -> mMetaVar;
+    }
+    return _cap_type_metavar(pi -> mType);
+}
+
+const char * _cap_type_metavar(DataType type) {
+    const char * type_metavar;
+    switch (type) {
+        case DT_DOUBLE:
+            type_metavar = "DOUBLE";
+            break;
+        case DT_INT:
+            type_metavar = "INT";
+            break;
+        case DT_STRING:
+            type_metavar = "STRING";
+            break;
+        case DT_PRESENCE:
+        default:
+            type_metavar = NULL;
+    }
+    return type_metavar;
 }
 
 #endif

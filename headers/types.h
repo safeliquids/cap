@@ -162,9 +162,12 @@ typedef struct {
  */
 typedef struct {
     char * mName;
+    char * mMetaVar;
+    char * mDescription;
     DataType mType;
     int mMinCount;
     int mMaxCount;
+    bool mIsHelp;
 } FlagInfo;
 
 /**
@@ -172,6 +175,8 @@ typedef struct {
  */
 typedef struct {
     char * mName;
+    char * mMetaVar;
+    char * mDescription;
     DataType mType;
 } PositionalInfo;
 
@@ -203,6 +208,15 @@ typedef struct {
  * @see cap_parser_parse
  */
 typedef struct {
+    char * mProgramName;
+    char * mDescription;
+    char * mEpilogue;
+    char * mCustomHelp;
+    char * mCustomUsage;
+
+    bool mEnableHelp;
+    bool mEnableUsage;
+
     FlagInfo * mFlags;
     size_t mFlagCount;
     size_t mFlagAlloc;
@@ -213,6 +227,10 @@ typedef struct {
 
     char * mFlagPrefixChars;
     char * mFlagSeparator;
+
+    size_t mHelpFlagIndex;
+    bool mHelpIsConfigured;
+
 } ArgumentParser;
 
 /**
@@ -231,6 +249,10 @@ typedef enum {
      * This value is given when parsing was successful.
      */
     PER_NO_ERROR,
+    /**
+     * Help flag was encountered.
+     */
+    PER_HELP,
     /**
      * Some required positionals were omitted.
      */
