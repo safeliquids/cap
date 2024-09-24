@@ -28,6 +28,12 @@ const char * _cap_get_posit_metavar(const PositionalInfo * pi);
 const char * _cap_type_metavar(DataType type);
 
 // ============================================================================
+// === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
+// ============================================================================
+
+void cap_parser_set_help_flag(ArgumentParser * parser, const char * name);
+
+// ============================================================================
 // === PARSER: CREATION AND DESTRUCTION =======================================
 // ============================================================================
 
@@ -56,9 +62,24 @@ ArgumentParser * cap_parser_make_empty() {
         .mPositionalCount = 0u,
         .mPositionalAlloc = 0u,
         .mFlagPrefixChars = copy_string("-"),
-        .mFlagSeparator = copy_string("--")
+        .mFlagSeparator = copy_string("--"),
+        .mHelpFlagIndex = 0u,
+        .mHelpIsConfigured = false
     };
     return p;
+}
+
+/**
+ * Creates a new default parser.
+ * 
+ * Creates a new parser with default configuration. It differs from an empty parser in that it contains exactly one flag - the automatic help flag "-h".
+ * 
+ * @see cap_parser_make_empty
+ */
+ArgumentParser * cap_parser_make_default() {
+    ArgumentParser * parser = cap_parser_make_empty();
+    cap_parser_set_help_flag(parser, "-h");
+    return parser;
 }
 
 /**
@@ -108,6 +129,8 @@ void cap_parser_destroy(ArgumentParser * parser) {
 
     free(parser -> mFlagPrefixChars);
     free(parser -> mFlagSeparator);
+
+    parser -> mHelpIsConfigured = false;
 
     free(parser);
 }
@@ -415,6 +438,60 @@ void cap_parser_add_flag(
     parser -> mFlags[parser -> mFlagCount++] = new_flag;
 }
 
+/**
+ * Sets a flag for displaying help.
+ * 
+ * Sets a flag that makes the program immediately display help information 
+ * and exit. By default, this flag is "-h", but can be overriden using this 
+ * function.
+ * 
+ * If `name` is `NULL` and a help flag is already configured, it is removed. 
+ * If a duplicate or otherwise invalid `name` is given, the program exits with
+ * an error.
+ * 
+ * @param parser object to configure
+ * @param name name of the custom help flag
+ */
+void cap_parser_set_help_flag(ArgumentParser * parser, const char * name) {
+    if (!parser) {
+        return;
+    }
+    if (parser -> mHelpIsConfigured) {
+        FlagInfo * help_flag_info = parser -> mFlags + parser -> mHelpFlagIndex;
+        // name is identical -> there's nothing to do
+        if (name && !strcmp(name, help_flag_info -> mName)) {
+            return;
+        }
+        // now we un-configure the existing help flag
+
+        // don't need to check if flagCount > 0 because at least a help flag 
+        // exists
+        FlagInfo * last_flag = parser -> mFlags + parser -> mFlagCount - 1u;
+        _cap_delete_string_property(&(help_flag_info -> mName));
+        _cap_delete_string_property(&(help_flag_info -> mMetaVar));
+        _cap_delete_string_property(&(help_flag_info -> mDescription));
+        if (help_flag_info != last_flag) {
+            *help_flag_info = *last_flag;
+        }
+        --parser -> mFlagCount;
+        parser -> mHelpIsConfigured = false;
+    }
+    
+    // at this moment, the help flag is definitely not configured: either it 
+    // did not exist, or it just got removed.
+
+    // if the goal was to remove the help flag, we end here
+    if (!name) {
+        return;
+    }
+
+    cap_parser_add_flag(
+        parser, name, DT_PRESENCE, 0, -1, NULL, 
+        "Display this help message and exit");
+    parser -> mHelpIsConfigured = true;
+    parser -> mHelpFlagIndex = parser -> mFlagCount - 1u;
+}
+
 // ============================================================================
 // === PARSER: ADDING POSITIONALS =============================================
 // ============================================================================
@@ -682,6 +759,9 @@ ParsingResult cap_parser_parse_noexit(
     const char * const prefix_chars = parser -> mFlagPrefixChars;
     const char * const flag_separator = parser -> mFlagSeparator;
 
+    const FlagInfo * const help_flag_info = parser -> mHelpIsConfigured 
+        ? parser -> mFlags + parser -> mHelpFlagIndex : NULL;
+
     int index = 0;
     bool positional_only = false;
     size_t positional_index = 0;
@@ -693,7 +773,7 @@ ParsingResult cap_parser_parse_noexit(
         const char * arg = argv[index];
         
         // switch to positional-only mode if flag separator is found
-        if (!positional_only && flag_separator \
+        if (!positional_only && flag_separator
                 && strcmp(arg, flag_separator) == 0) {
             positional_only = true;
             continue;
@@ -722,9 +802,9 @@ ParsingResult cap_parser_parse_noexit(
 
         // 1. is this a flag that exists?
         size_t i = 0;
-        FlagInfo * flag_info = NULL;
+        const FlagInfo * flag_info = NULL;
         for ( ; i < parser -> mFlagCount; ++i) {
-            FlagInfo * x = parser -> mFlags + i;
+            const FlagInfo * x = parser -> mFlags + i;
             if (strcmp(x -> mName, arg) == 0) {
                 flag_info = x;
                 break;
@@ -736,7 +816,13 @@ ParsingResult cap_parser_parse_noexit(
             goto fail;
         }
 
-        // 2. check data type and try to parse it
+        // 2. is this the help flag?
+        if (flag_info == help_flag_info) {
+            result.mError = PER_HELP;
+            goto fail;
+        }
+
+        // 3. check data type and try to parse it
         DataType dtype = flag_info -> mType;
         if (dtype == DT_PRESENCE) {
             cap_pa_add_flag(parsed_arguments, arg, cap_tu_make_presence());
@@ -762,7 +848,7 @@ ParsingResult cap_parser_parse_noexit(
         }
         // very important! must skip the word that was consumed here
         index++;
-        // 3. add this new value for the flag
+        // 4. add this new value for the flag
         cap_pa_add_flag(parsed_arguments, arg, tu);
     }
 
@@ -815,6 +901,12 @@ ParsedArguments * cap_parser_parse(
     if (result.mError == PER_NO_ERROR) {
         return result.mArguments;
     }
+    if (result.mError == PER_HELP) {
+        cap_parser_print_usage(parser, stdout, *argv);
+        putchar('\n');
+        cap_parser_print_help(parser, stdout);
+        exit(0);
+    }
     fprintf(stderr, "%s: ", cap_parser_get_program_name(parser, *argv));
     switch (result.mError) {
         case PER_NOT_ENOUGH_POSITIONALS:
@@ -841,6 +933,7 @@ ParsedArguments * cap_parser_parse(
         case PER_TOO_MANY_FLAGS:
             fprintf(stderr, "too many instances of flag '%s'", result.mFirstErrorWord);
             break;
+        case PER_HELP:
         case PER_NO_ERROR:
         default:
             assert(false && "unreachable in parsing error checking");

@@ -167,6 +167,7 @@ typedef struct {
     DataType mType;
     int mMinCount;
     int mMaxCount;
+    bool mIsHelp;
 } FlagInfo;
 
 /**
@@ -222,6 +223,9 @@ typedef struct {
 
     char * mFlagPrefixChars;
     char * mFlagSeparator;
+
+    size_t mHelpFlagIndex;
+    bool mHelpIsConfigured;
 } ArgumentParser;
 
 /**
@@ -240,6 +244,10 @@ typedef enum {
      * This value is given when parsing was successful.
      */
     PER_NO_ERROR,
+    /**
+     * Help flag was encountered.
+     */
+    PER_HELP,
     /**
      * Some required positionals were omitted.
      */
