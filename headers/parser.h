@@ -343,6 +343,64 @@ void cap_parser_add_positional(
 }
 
 // ============================================================================
+// === PARSER: HELP ===========================================================
+// ============================================================================
+
+/**
+ * Prints a usage string.
+ * 
+ * Prints a usage string to `file` based on the flags and arguments configured
+ * in `parser`.
+ */
+void cap_parser_print_usage(
+        const ArgumentParser * parser, FILE * file,
+        const char * program_name) {
+    if (!parser || !file) {
+        return;
+    }
+
+    fprintf(file, "usage:\n");
+    fprintf(file, "%s", program_name);
+    for (size_t i = 0; i < parser -> mFlagCount; ++i) {
+        const FlagInfo * fi = parser -> mFlags + i;
+        fputc(' ', file);
+        if (fi -> mMinCount == 0) {
+            fputc('[', file);
+        }
+        fprintf(file, "%s", fi -> mName);
+        const char * metavar;
+        switch (fi -> mType) {
+            case DT_DOUBLE:
+                metavar = "DOUBLE";
+                break;
+            case DT_INT:
+                metavar = "INT";
+                break;
+            case DT_STRING:
+                metavar = "STRING";
+                break;
+            case DT_PRESENCE:
+            default:
+                metavar = NULL;
+        }
+        if (metavar) {
+            fprintf(file, " %s", metavar);
+        }
+        if (fi -> mMinCount == 0) {
+            fputc(']', file);
+        }
+    }
+    if (parser -> mPositionalCount > 0u && parser -> mFlagSeparator) {
+        fprintf(file, " [%s]", parser -> mFlagSeparator);
+    }
+    for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
+        const PositionalInfo * pi = parser -> mPositionals + i;
+        fprintf(file, " <%s>", pi -> mName);
+    }
+    fputc('\n', file);
+}
+
+// ============================================================================
 // === PARSER: PARSING ARGUMENTS ==============================================
 // ============================================================================
 
@@ -543,7 +601,8 @@ ParsedArguments * cap_parser_parse(
             assert(false && "unreachable in parsing error checking");
 
     }
-    fprintf(stderr, "\n");
+    fprintf(stderr, "\n\n");
+    cap_parser_print_usage(parser, stderr, *argv);
     exit(-1);
 }
 
