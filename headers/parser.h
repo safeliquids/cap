@@ -492,6 +492,36 @@ void cap_parser_add_positional(
 // ============================================================================
 
 /**
+ * Retrieves the program name for this parser.
+ * 
+ * Obtains the custom program name configured in `parser` or guesses the 
+ * executable's name from `argv0` if not name has been configured. If `parser`
+ * has no program name, the part of `argv0' after the right-most path separator
+ * is used. On Windows, both '\' and '/' are considered path separators.
+ * 
+ * @param parser parser object to consult
+ * @param argv0 first word on the command line
+ * @return configured or estimated program name
+ */
+const char * cap_parser_get_program_name(const ArgumentParser * parser, const char * argv0) {
+    if (parser -> mProgramName) {
+        return parser -> mProgramName;
+    }
+    const char * program_name = argv0;
+    const char * slash = strrchr(argv0, '/');
+    if (slash) {
+        program_name = slash + 1;
+    }
+#ifdef _WIN32
+    const char * backslash = strrchr(argv0, '\\');
+    if (backslash && backslash > slash) {
+        program_name = backslash + 1;
+    }
+#endif
+    return program_name;
+}
+
+/**
  * Prints a usage string.
  * 
  * Prints a usage string to `file` based on the flags and arguments configured
@@ -506,23 +536,7 @@ void cap_parser_print_usage(
 
     fprintf(file, "usage:\n");
     fprintf(file, "\t");
-    if (parser -> mProgramName) {
-        fprintf(file, "%s", parser -> mProgramName);
-    }
-    else {
-        const char * program_name = argv0;
-        const char * slash = strrchr(argv0, '/');
-        if (slash) {
-            program_name = slash + 1;
-        }
-#ifdef _WIN32
-        const char * backslash = strrchr(argv0, '\\');
-        if (backslash && backslash > slash) {
-            program_name = backslash + 1;
-        }
-#endif
-        fprintf(file, "%s", program_name);
-    }
+    fprintf(file, "%s", cap_parser_get_program_name(parser, argv0));
 
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         const FlagInfo * fi = parser -> mFlags + i;
@@ -801,7 +815,7 @@ ParsedArguments * cap_parser_parse(
     if (result.mError == PER_NO_ERROR) {
         return result.mArguments;
     }
-    fprintf(stderr, "%s: ", *argv);
+    fprintf(stderr, "%s: ", cap_parser_get_program_name(parser, *argv));
     switch (result.mError) {
         case PER_NOT_ENOUGH_POSITIONALS:
             fprintf(stderr, "not enough arguments");
