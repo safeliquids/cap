@@ -12,8 +12,8 @@ bool test_multiple_optional_flags_1() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL);
-    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL, NULL);
 
     bool failed = false;
     do {
@@ -48,8 +48,8 @@ bool test_multiple_optional_flags_2() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL);
-    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL, NULL);
 
     bool failed = false;
     do {
@@ -85,8 +85,8 @@ bool test_multiple_optional_flags_3() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL);
-    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL, NULL);
 
     bool failed = false;
     do {
@@ -123,8 +123,8 @@ bool test_multiple_optional_flags_4() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL);
-    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL, NULL);
 
     bool failed = false;
     do {
@@ -165,8 +165,8 @@ bool test_multiple_optional_flags_5() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL);
-    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL, NULL);
 
     bool failed = false;
     do {
@@ -191,8 +191,8 @@ bool test_multiple_optional_flags_6() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL);
-    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL, NULL);
 
     bool failed = false;
     do {
@@ -220,8 +220,8 @@ bool test_multiple_optional_flags_7() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL);
-    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL, NULL);
 
     bool failed = false;
     do {
@@ -251,8 +251,8 @@ bool test_multiple_optional_flags_8() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL);
-    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL, NULL);
 
     bool failed = false;
     do {
@@ -280,8 +280,8 @@ bool test_multiple_optional_flags_9() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL);
-    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_PRESENCE, 0, 1, NULL, NULL);
 
     bool failed = false;
     do {
@@ -309,8 +309,8 @@ bool test_multiple_optional_flags_10() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL);
-    cap_parser_add_flag(parser, flag2, DT_INT, 2, 3, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_INT, 2, 3, NULL, NULL);
 
     bool failed = false;
     do {
@@ -339,8 +339,8 @@ bool test_multiple_optional_flags_11() {
     ArgumentParser * parser = cap_parser_make_empty();
     ParsedArguments * pa = NULL;
 
-    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL);
-    cap_parser_add_flag(parser, flag2, DT_INT, 2, 3, NULL);
+    cap_parser_add_flag(parser, flag1, DT_DOUBLE, 1, 2, NULL, NULL);
+    cap_parser_add_flag(parser, flag2, DT_INT, 2, 3, NULL, NULL);
 
     bool failed = false;
     do {

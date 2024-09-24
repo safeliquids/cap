@@ -12,7 +12,7 @@ bool test_parse_flag() {
     ParsedArguments * pa_1 = NULL,
                     * pa_2 = NULL;
 
-    cap_parser_add_flag(parser, sus_flag, DT_PRESENCE, 0, 1, NULL);
+    cap_parser_add_flag(parser, sus_flag, DT_PRESENCE, 0, 1, NULL, NULL);
     pa_1 = cap_parser_parse(parser, 1, a);
     if (cap_pa_has_flag(pa_1, sus_flag)) goto fail;
 
@@ -45,7 +45,7 @@ bool test_parse_double_flag() {
                     * pa_2 = NULL,
                     * pa_3 = NULL;
 
-    cap_parser_add_flag(parser, sus_flag, DT_DOUBLE, 0, 1, NULL);
+    cap_parser_add_flag(parser, sus_flag, DT_DOUBLE, 0, 1, NULL, NULL);
     
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
@@ -92,7 +92,7 @@ bool test_parse_int_flag() {
                     * pa_2 = NULL,
                     * pa_3 = NULL;
 
-    cap_parser_add_flag(parser, sus_flag, DT_INT, 0, 1, NULL);
+    cap_parser_add_flag(parser, sus_flag, DT_INT, 0, 1, NULL, NULL);
     
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
@@ -139,7 +139,7 @@ bool test_parse_string_flag() {
                     * pa_2 = NULL,
                     * pa_3 = NULL;
 
-    cap_parser_add_flag(parser, sus_flag, DT_STRING, 0, 1, NULL);
+    cap_parser_add_flag(parser, sus_flag, DT_STRING, 0, 1, NULL, NULL);
     
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
@@ -188,7 +188,7 @@ bool test_parse_required_flag() {
     ParsedArguments * pa_1 = NULL,
                     * pa_2 = NULL;
 
-    cap_parser_add_flag(parser, sus_flag, DT_PRESENCE, 1, 1, NULL);
+    cap_parser_add_flag(parser, sus_flag, DT_PRESENCE, 1, 1, NULL, NULL);
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
     if (res.mError == PER_NO_ERROR) goto fail;
@@ -230,7 +230,7 @@ bool test_parse_flag_with_count_checking() {
                     * pa_2 = NULL,
                     * pa_3 = NULL;
 
-    cap_parser_add_flag(parser, sus_flag, DT_PRESENCE, 1, 1, NULL);
+    cap_parser_add_flag(parser, sus_flag, DT_PRESENCE, 1, 1, NULL, NULL);
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
     if (res.mError == PER_NO_ERROR) goto fail;
@@ -280,7 +280,7 @@ bool test_parse_required_int_flag() {
                     * pa_2 = NULL,
                     * pa_3 = NULL;
 
-    cap_parser_add_flag(parser, sus_flag, DT_INT, 1, 1, NULL);
+    cap_parser_add_flag(parser, sus_flag, DT_INT, 1, 1, NULL, NULL);
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
     if (res.mError == PER_NO_ERROR) goto fail;
@@ -331,7 +331,7 @@ bool test_parse_string_flag_with_count_checking() {
                     * pa_2 = NULL,
                     * pa_3 = NULL;
 
-    cap_parser_add_flag(parser, sus_flag, DT_STRING, 1, 1, NULL);
+    cap_parser_add_flag(parser, sus_flag, DT_STRING, 1, 1, NULL, NULL);
     ParsingResult res = cap_parser_parse_noexit(parser, 1, a);
     pa_1 = res.mArguments;
     if (res.mError == PER_NO_ERROR) goto fail;
@@ -378,7 +378,7 @@ bool test_more_count_checking() {
     static const int upper_bound = 9;
     
     ArgumentParser * parser = cap_parser_make_empty();
-    cap_parser_add_flag(parser, flag, DT_INT, lower_bound, upper_bound, NULL);
+    cap_parser_add_flag(parser, flag, DT_INT, lower_bound, upper_bound, NULL, NULL);
 
     ParsedArguments * pa = NULL;
 
