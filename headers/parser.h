@@ -596,7 +596,7 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
         return;
     }
     if (parser -> mCustomHelp) {
-        fprintf(file, "%s", parser -> mCustomHelp);
+        fprintf(file, "%s\n", parser -> mCustomHelp);
         return;
     }
     if (parser -> mDescription) {
@@ -795,9 +795,6 @@ fail:
  * @return pointer to a new `ParsedArguments` object containing information on 
  *         parsed flags and positional arguments.
  */
-
-
-
 ParsedArguments * cap_parser_parse(
         ArgumentParser * parser, int argc, const char ** argv) {
     ParsingResult result = cap_parser_parse_noexit(parser, argc, argv);
@@ -807,7 +804,7 @@ ParsedArguments * cap_parser_parse(
     fprintf(stderr, "%s: ", *argv);
     switch (result.mError) {
         case PER_NOT_ENOUGH_POSITIONALS:
-            fprintf(stderr, "not enought arguments");
+            fprintf(stderr, "not enough arguments");
             break;
         case PER_TOO_MANY_POSITIONALS:
             fprintf(stderr, "too many arguments");
