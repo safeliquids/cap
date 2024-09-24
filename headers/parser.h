@@ -40,6 +40,7 @@ bool _cap_parse_word_as_type(
 ArgumentParser * cap_parser_make_empty() {
     ArgumentParser * p = (ArgumentParser *) malloc(sizeof(ArgumentParser));
     *p = (ArgumentParser) {
+        .mProgramName = NULL,
         .mFlags = NULL,
         .mFlagCount = 0u,
         .mFlagAlloc = 0u,
@@ -63,15 +64,27 @@ ArgumentParser * cap_parser_make_empty() {
  */
 void cap_parser_destroy(ArgumentParser * parser) {
     if (!parser) return;
+    if (parser -> mProgramName) {
+        free(parser -> mProgramName);
+        parser -> mProgramName = NULL;
+    }
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         FlagInfo * fi = parser -> mFlags + i;
         free(fi -> mName);
         fi -> mName = NULL;
+        if (fi -> mMetaVar) {
+            free(fi -> mMetaVar);
+            fi -> mMetaVar = NULL;
+        }
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         PositionalInfo * pi = parser -> mPositionals + i;
         free(pi -> mName);
         pi -> mName = NULL;
+        if (pi -> mMetaVar) {
+            free(pi -> mMetaVar);
+            pi -> mMetaVar = NULL;
+        }
     }
     free(parser -> mFlags);
     free(parser -> mPositionals);
@@ -182,6 +195,31 @@ void cap_parser_set_flag_separator(
     parser -> mFlagSeparator = copy_string(separator);
 }
 
+/**
+ * Sets the name of the program.
+ * 
+ * Sets the display name of the program for use in help and usage messages.
+ * By default, the program name is constructed from the first command line 
+ * argument.
+ * 
+ * @param parser parser object to configure
+ * @param name null-terminated name of the program. If NULL, the parser is 
+ *        reset to default behaviour (described above).
+ */
+void cap_parser_set_program_name(ArgumentParser * parser, const char * name) {
+    if (!parser) {
+        return;
+    }
+    if (parser -> mProgramName) {
+        free(parser -> mProgramName);
+        parser -> mProgramName = NULL;
+    }
+    if (!name) {
+        return;
+    }
+    parser -> mProgramName = copy_string(name);
+}
+
 // ============================================================================
 // === PARSER: ADDING FLAGS ===================================================
 // ============================================================================
@@ -211,6 +249,10 @@ void cap_parser_set_flag_separator(
  * required flags, flags that may be given up to once, and similar constructs.
  * If `max_count` is negative, the flag can be read up to any number of times.
  * 
+ * The `metavar` parameter specifies how the value of the flag should be
+ * displayed in usage and help messages. If `NULL` is given, the flag's data 
+ * type is used instead.
+ * 
  * @param parser object to create the flag in
  * @param flag null-terminated name of the new flag, including flag prefix 
  *        charactes (e.g. '-')
@@ -219,10 +261,11 @@ void cap_parser_set_flag_separator(
  *        command line. Must be at least zero.
  * @param max_count maximum number of times the flag may be given on the 
  *        command line. Must be either negative or at least `min_count`.
+ * @param metavar display name of the flag's value in help messages
  */
 void cap_parser_add_flag(
         ArgumentParser * parser, const char * flag, DataType type, 
-        int min_count, int max_count) {
+        int min_count, int max_count, const char * metavar) {
     const char * const flag_prefix = parser -> mFlagPrefixChars;
     const char * const flag_separator = parser -> mFlagSeparator;
     if (!parser) {
@@ -275,6 +318,7 @@ void cap_parser_add_flag(
     }
     FlagInfo new_flag = (FlagInfo) {
         .mName = copy_string(flag),
+        .mMetaVar = metavar ? copy_string(metavar) : NULL,
         .mType = type,
         .mMinCount = min_count,
         .mMaxCount = max_count
@@ -302,12 +346,18 @@ void cap_parser_add_flag(
  * All positional arguments are required. If any positional arguments are 
  * missing after parsing all command line words, a parse-time error is raised.
  * 
+ * The `metavar` parameter specifies the display name of this argument in help 
+ * and usage messages. If `NULL` is given, the argument's `name` is used 
+ * instead.
+ * 
  * @param parser object to configure
  * @param name name of the new argument
  * @param type data type of the new argument
+ * @param metavar display name for this argument in help messages
  */
 void cap_parser_add_positional(
-        ArgumentParser * parser, const char * name, DataType type) {
+        ArgumentParser * parser, const char * name, DataType type, 
+        const char * metavar) {
     if (!parser) {
         fprintf(stderr, "cap: missing parser\n");
         exit(-1);
@@ -337,6 +387,7 @@ void cap_parser_add_positional(
     }
     PositionalInfo new_positional = (PositionalInfo) {
         .mName = copy_string(name),
+        .mMetaVar = metavar ? copy_string(metavar) : NULL,
         .mType = type
     };
     parser -> mPositionals[parser -> mPositionalCount++] = new_positional;
@@ -354,13 +405,31 @@ void cap_parser_add_positional(
  */
 void cap_parser_print_usage(
         const ArgumentParser * parser, FILE * file,
-        const char * program_name) {
+        const char * argv0) {
     if (!parser || !file) {
         return;
     }
 
     fprintf(file, "usage:\n");
-    fprintf(file, "%s", program_name);
+    fprintf(file, "\t");
+    if (parser -> mProgramName) {
+        fprintf(file, "%s", parser -> mProgramName);
+    }
+    else {
+        const char * program_name = argv0;
+        const char * slash = strrchr(argv0, '/');
+        if (slash) {
+            program_name = slash + 1;
+        }
+#ifdef _WIN32
+        const char * backslash = strrchr(argv0, '\\');
+        if (backslash && backslash > slash) {
+            program_name = backslash + 1;
+        }
+#endif
+        fprintf(file, "%s", program_name);
+    }
+
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         const FlagInfo * fi = parser -> mFlags + i;
         fputc(' ', file);
@@ -368,33 +437,45 @@ void cap_parser_print_usage(
             fputc('[', file);
         }
         fprintf(file, "%s", fi -> mName);
-        const char * metavar;
-        switch (fi -> mType) {
-            case DT_DOUBLE:
-                metavar = "DOUBLE";
+        do {
+            if (fi -> mType == DT_PRESENCE) break;
+            if (fi -> mMetaVar) {
+                fprintf(file, " %s", fi -> mMetaVar);
                 break;
-            case DT_INT:
-                metavar = "INT";
-                break;
-            case DT_STRING:
-                metavar = "STRING";
-                break;
-            case DT_PRESENCE:
-            default:
-                metavar = NULL;
-        }
-        if (metavar) {
-            fprintf(file, " %s", metavar);
-        }
+            }
+            const char * type_metavar;
+            switch (fi -> mType) {
+                case DT_DOUBLE:
+                    type_metavar = "DOUBLE";
+                    break;
+                case DT_INT:
+                    type_metavar = "INT";
+                    break;
+                case DT_STRING:
+                    type_metavar = "STRING";
+                    break;
+                case DT_PRESENCE:
+                default:
+                    type_metavar = NULL;
+            }
+            if (type_metavar) {
+                fprintf(file, " %s", type_metavar);
+            }
+        } while (false);
         if (fi -> mMinCount == 0) {
             fputc(']', file);
         }
     }
+
     if (parser -> mPositionalCount > 0u && parser -> mFlagSeparator) {
         fprintf(file, " [%s]", parser -> mFlagSeparator);
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         const PositionalInfo * pi = parser -> mPositionals + i;
+        if (pi -> mMetaVar) {
+            fprintf(file, " %s", pi -> mMetaVar);
+            continue;
+        }
         fprintf(file, " <%s>", pi -> mName);
     }
     fputc('\n', file);

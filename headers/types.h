@@ -162,6 +162,7 @@ typedef struct {
  */
 typedef struct {
     char * mName;
+    char * mMetaVar;
     DataType mType;
     int mMinCount;
     int mMaxCount;
@@ -172,6 +173,7 @@ typedef struct {
  */
 typedef struct {
     char * mName;
+    char * mMetaVar;
     DataType mType;
 } PositionalInfo;
 
@@ -203,6 +205,8 @@ typedef struct {
  * @see cap_parser_parse
  */
 typedef struct {
+    char * mProgramName;
+
     FlagInfo * mFlags;
     size_t mFlagCount;
     size_t mFlagAlloc;

@@ -33,7 +33,9 @@ const char * obtain_system_include(const char * line_buffer) {
     return i_name;
 }
 
-void insert_if_not_present(const char *** i_s, int * i_count, int * i_alloc, const char * i_name) {
+void insert_if_not_present(
+        const char *** i_s, int * i_count, int * i_alloc,
+        const char * i_name) {
     // try and find the same include
     int j = 0;
     int comp = 1;
@@ -62,7 +64,9 @@ void insert_if_not_present(const char *** i_s, int * i_count, int * i_alloc, con
     (*i_s)[(*i_count)++] = to_insert;
 }
 
-void extract_includes(const int file_count, const char ** files, int * include_count, const char *** includes) {
+void extract_includes(
+        const int file_count, const char ** files, int * include_count, 
+        const char *** includes) {
     int i_alloc = A_SIZE;
     *includes = (const char **) malloc(A_SIZE * sizeof(const char *));
 
@@ -102,7 +106,8 @@ void extract_includes(const int file_count, const char ** files, int * include_c
 }
 
 void dump_files_without_includes(
-        FILE * dst, int file_count, const char ** files, bool * last_line_was_empty) {
+        FILE * dst, int file_count, const char ** files,
+        bool * last_line_was_empty) {
     for (int i = 0; i < file_count; ++i) {
         if (!*last_line_was_empty) {
             fputs("\n", dst);
@@ -115,6 +120,7 @@ void dump_files_without_includes(
         }
         char line_buffer[LINE_BUFFER_SIZE];
         bool skip_next = false;
+        int preprocessor_if_depth = 0;
         while(true) {
             char * s = fgets(line_buffer, LINE_BUFFER_SIZE, file);
             int end = feof(file);
@@ -143,12 +149,17 @@ void dump_files_without_includes(
             if (strncmp("#include", line_buffer, 8) == 0) {
                 continue;
             }
-            if (strncmp("#ifndef", line_buffer, 7) == 0) {
-                skip_next = true;
-                continue;
+            if (strncmp("#if", line_buffer, 3) == 0) {
+                // if this is the outer-most #if, skip it together with the next line
+                if (preprocessor_if_depth++ == 0) {
+                    skip_next = true;
+                    continue;
+                }
             }
             if (strncmp("#endif", line_buffer, 6) == 0) {
-                continue;
+                if (--preprocessor_if_depth == 0) {
+                    continue;
+                }
             }
 
             *last_line_was_empty = false;
