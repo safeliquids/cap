@@ -225,8 +225,7 @@ typedef struct {
     size_t mPositionalAlloc;
 
     char * mFlagPrefixChars;
-    char * mFlagSeparator;
-
+    FlagInfo * mFlagSeparatorInfo;
     FlagInfo * mHelpFlagInfo;
 } ArgumentParser;
 

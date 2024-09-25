@@ -33,6 +33,7 @@ bool test_prefix_default_0() {
  */
 bool test_prefix_default_1() {
     ArgumentParser * parser = cap_parser_make_empty();
+    cap_parser_set_flag_separator(parser, "--");
     const char * foo = "--foo";
     const char * word = "word";
     cap_parser_add_flag(parser, foo, DT_PRESENCE, 0, -1, NULL, NULL);
@@ -68,6 +69,7 @@ bool test_prefix_default_1() {
  */
 bool test_prefix_default_2() {
     ArgumentParser * parser = cap_parser_make_empty();
+    cap_parser_set_flag_separator(parser, "--");
     const char * foo = "--foo";
     const char * word = "word";
     cap_parser_add_flag(parser, foo, DT_PRESENCE, 0, -1, NULL, NULL);
@@ -102,6 +104,7 @@ bool test_prefix_default_2() {
  */
 bool test_prefix_default_3() {
     ArgumentParser * parser = cap_parser_make_empty();
+    cap_parser_set_flag_separator(parser, "--");
     const char * foo = "--foo";
     const char * word = "word";
     cap_parser_add_flag(parser, foo, DT_PRESENCE, 0, -1, NULL, NULL);
@@ -122,10 +125,13 @@ bool test_prefix_default_3() {
 
 /**
  * test default behavior: the default flag prefix char should be - and the 
- * default flag separator should be --. This should parse the --foo flag twice and the --bar flag once. Both positional arguments should contain the string "--bar".
+ * default flag separator should be --. This should parse the --foo flag twice 
+ * and the --bar flag once. Both positional arguments should contain the 
+ * string "--bar".
  */
 bool test_prefix_default_4() {
     ArgumentParser * parser = cap_parser_make_empty();
+    cap_parser_set_flag_separator(parser, "--");
     const char * foo = "--foo";
     const char * bar = "--bar";
 
@@ -205,6 +211,7 @@ bool test_prefix_custom_0() {
  */
 bool test_prefix_custom_1() {
     ArgumentParser * parser = cap_parser_make_empty();
+    cap_parser_set_flag_separator(parser, "//");
     const char * foo = "/foo";
     const char * bar = "/bar";
 
@@ -254,11 +261,11 @@ bool test_prefix_custom_1() {
  * custom flag prefix was set
  * 
  * this should parse everything correctly in the same way as in 
- * test_prefix_deafult_4. Note that, there are multiple prefix characters 
- * and the flag separator is automaticaly created using the first one.
+ * test_prefix_deafult_4.
  */
 bool test_prefix_custom_2() {
     ArgumentParser * parser = cap_parser_make_empty();
+    cap_parser_set_flag_separator(parser, "--");
     const char * foo = "-foo";
     const char * bar = "+bar";
 

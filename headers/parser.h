@@ -34,6 +34,8 @@ void _cap_flag_info_destroy(FlagInfo * info);
 
 void cap_parser_set_help_flag(
         ArgumentParser * parser, const char * name, const char * description);
+void cap_parser_set_flag_separator(
+    ArgumentParser * parser, const char * separator);
 void cap_parser_enable_help(ArgumentParser * parser, bool enable);
 void cap_parser_enable_usage(ArgumentParser * parser, bool enable);
 
@@ -72,7 +74,7 @@ ArgumentParser * cap_parser_make_empty() {
         .mPositionalAlloc = 0u,
         
         .mFlagPrefixChars = copy_string("-"),
-        .mFlagSeparator = copy_string("--"),
+        .mFlagSeparatorInfo = NULL,
         .mHelpFlagInfo = NULL
     };
     return p;
@@ -88,6 +90,7 @@ ArgumentParser * cap_parser_make_empty() {
 ArgumentParser * cap_parser_make_default() {
     ArgumentParser * parser = cap_parser_make_empty();
     cap_parser_set_help_flag(parser, "-h", NULL);
+    cap_parser_set_flag_separator(parser, "--");
     cap_parser_enable_help(parser, true);
     cap_parser_enable_usage(parser, true);
     return parser;
@@ -129,12 +132,15 @@ void cap_parser_destroy(ArgumentParser * parser) {
     parser -> mPositionalCount = parser -> mPositionalAlloc = 0;
 
     delete_string_property(&(parser -> mFlagPrefixChars));
-    delete_string_property(&(parser -> mFlagSeparator));
 
     if (parser -> mHelpFlagInfo) {
         _cap_flag_info_destroy(parser -> mHelpFlagInfo);
+        parser -> mHelpFlagInfo = NULL;
     }
-    parser -> mHelpFlagInfo = NULL;
+    if (parser -> mFlagSeparatorInfo) {
+        _cap_flag_info_destroy(parser -> mFlagSeparatorInfo);
+        parser -> mFlagSeparatorInfo = NULL;
+    }
 
     free(parser);
 }
@@ -150,15 +156,6 @@ void cap_parser_destroy(ArgumentParser * parser) {
  * Any command line word that begins with one of these characters is considered 
  * a flag unless parsing in positional-only mode, see below. By default, 
  * '-' (dash) is considered the only prefix character.
- * 
- * This also automatically configures a flag called a flag separator. When the
- * flag separator is found on the command line, the parser enters positional 
- * only mode. In this mode all command line words are used as positionals even 
- * if they begin with a flag prefix character. The automatic value created for 
- * the flag separator is the first character given to this function repeated 
- * twice (e.g. by default '--'). The flag separator can be afterwards 
- * explicitly configured or disabled using the `cap_parser_set_flag_separator` 
- * function.
  * 
  * If `parser` is `NULL`, nothing happens. If `prefix_chars` is `NULL` or
  * empty, the program exits with an error.
@@ -184,11 +181,6 @@ void cap_parser_set_flag_prefix(
         exit(-1);
     }
     set_string_property(&(parser -> mFlagPrefixChars), prefix_chars);
-    char * s = (char *) malloc(3 * sizeof(char));
-    s[0] = s[1] = *prefix_chars;
-    s[2] = 0;
-    delete_string_property(&(parser -> mFlagSeparator));
-    parser -> mFlagSeparator = s;
     return;
 }
 
@@ -199,19 +191,14 @@ void cap_parser_set_flag_prefix(
  * flag separator is a special flag that, when found on the command line, puts 
  * the parser in positional only mode. In this mode all command line words are 
  * used as positionals even if they begin with a flag prefix character.
- * 
- * By default the flag separator is '--' (double dash). It is further 
- * automatically set using a call to `cap_parser_set_flag_prefix` as the first 
- * flag prefix character doubled. `cap_parser_set_flag_separator` can be used 
- * to explicitly choose a different flag separator. Note that, calling 
- * `cap_parser_set_flag_prefix` after `cap_parser_set_flag_separator` replaces 
- * the previously configured value.
+ * By default the flag separator is '--' (double dash). 
  * 
  * @param parser parser object to configure
  * @param separator null-terminated string containing the new flag separator.
  *        If `NULL` is given, the flag separator is explicitly disabled.
  *        If an empty string is given, the program exits with an error.
- *        This string is copied into the parser and the caller remains the owner of the given pointer.
+ *        This string is copied into the parser and the caller remains the owner 
+ *        of the given pointer.
  */
 void cap_parser_set_flag_separator(
         ArgumentParser * parser, const char * separator) {
@@ -220,13 +207,28 @@ void cap_parser_set_flag_separator(
         fprintf(stderr, "cap: missing flag separator\n");
         exit(-1);
     }
+    if (parser -> mFlagSeparatorInfo) {
+        _cap_flag_info_destroy(parser -> mFlagSeparatorInfo);
+        parser -> mFlagSeparatorInfo = NULL;
+    }
     if (_cap_parser_find_flag(parser, separator)) {
         fprintf(
             stderr, "cap: cannot set '%s' as flag separator - this flag"
             " already exists\n", separator);
         exit(-1);
     }
-    set_string_property(&(parser -> mFlagSeparator), separator);
+    if (!separator) {
+        return;
+    }
+    parser -> mFlagSeparatorInfo = (FlagInfo *) malloc(sizeof(FlagInfo));
+    *parser -> mFlagSeparatorInfo = (FlagInfo) {
+        .mName = copy_string(separator),
+        .mMetaVar = NULL,
+        .mDescription = NULL,
+        .mType = DT_PRESENCE,
+        .mMinCount = 0,
+        .mMaxCount = -1
+    };
 }
 
 /**
@@ -429,7 +431,6 @@ void cap_parser_add_flag(
         int min_count, int max_count, const char * metavar,
         const char * description) {
     const char * const flag_prefix = parser -> mFlagPrefixChars;
-    const char * const flag_separator = parser -> mFlagSeparator;
     if (!parser) {
         fprintf(stderr, "cap: missing parser\n");
         exit(-1);
@@ -444,13 +445,7 @@ void cap_parser_add_flag(
             flag_prefix);
         exit(-1);
     }
-    if (flag_separator && strcmp(flag_separator, flag) == 0) {
-        fprintf(
-            stderr, "cap: invalid flag name - flag names may not be identical "
-            "to the flag separato \"%s\"\n", flag_separator);
-        exit(-1);
-    }
-    // this also checks agains the help flag if it exists
+    // this also checks agains the help flag and flag separator if they exist
     if (_cap_parser_find_flag(parser, flag)) {
         fprintf(stderr, "cap: duplicate flag definition %s\n", flag);
         exit(-1);
@@ -726,8 +721,8 @@ void cap_parser_print_usage(
         }
     }
 
-    if (parser -> mPositionalCount > 0u && parser -> mFlagSeparator) {
-        fprintf(file, " [%s]", parser -> mFlagSeparator);
+    if (parser -> mPositionalCount > 0u && parser -> mFlagSeparatorInfo) {
+        fprintf(file, " [%s]", parser -> mFlagSeparatorInfo -> mName);
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         const PositionalInfo * pi = parser -> mPositionals[i];
@@ -777,6 +772,13 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
         fprintf(file, "\t%s", parser -> mHelpFlagInfo -> mName);
         if (parser -> mHelpFlagInfo -> mDescription) {
             fprintf(file, "\t%s", parser -> mHelpFlagInfo -> mDescription);
+        }
+        fputc('\n', file);
+    }
+    if (parser -> mFlagSeparatorInfo) {
+        fprintf(file, "\t%s", parser -> mFlagSeparatorInfo -> mName);
+        if (parser -> mFlagSeparatorInfo -> mDescription) {
+            fprintf(file, "\t%s", parser -> mFlagSeparatorInfo -> mDescription);
         }
         fputc('\n', file);
     }
@@ -841,7 +843,7 @@ ParsingResult cap_parser_parse_noexit(
     // prefix chars should always exist even if not explicitly configured.
     // flag separator always exists if it is not disabled.
     const char * const prefix_chars = parser -> mFlagPrefixChars;
-    const char * const flag_separator = parser -> mFlagSeparator;
+    const FlagInfo * const flag_separator_info = parser -> mFlagSeparatorInfo;
     const FlagInfo * const help_flag_info = parser -> mHelpFlagInfo;
 
     int index = 0;
@@ -855,8 +857,8 @@ ParsingResult cap_parser_parse_noexit(
         const char * arg = argv[index];
         
         // switch to positional-only mode if flag separator is found
-        if (!positional_only && flag_separator
-                && strcmp(arg, flag_separator) == 0) {
+        if (!positional_only && flag_separator_info
+                && strcmp(arg, flag_separator_info -> mName) == 0) {
             positional_only = true;
             continue;
         }
@@ -1118,6 +1120,9 @@ FlagInfo * _cap_parser_find_flag(
     if (parser -> mHelpFlagInfo && !strcmp(flag, parser -> mHelpFlagInfo -> mName)) {
         return parser -> mHelpFlagInfo;
     }
+    if (parser -> mFlagSeparatorInfo && !strcmp(flag, parser -> mFlagSeparatorInfo -> mName)) {
+        return parser -> mFlagSeparatorInfo;
+    }
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         FlagInfo * fi = parser -> mFlags[i];
         if (!strcmp(flag, fi -> mName)) {
@@ -1128,6 +1133,9 @@ FlagInfo * _cap_parser_find_flag(
 }
 
 void _cap_flag_info_destroy(FlagInfo * info) {
+    if (!info) {
+        return;
+    }
     delete_string_property(&(info -> mName));
     delete_string_property(&(info -> mMetaVar));
     delete_string_property(&(info -> mDescription));
