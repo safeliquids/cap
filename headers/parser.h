@@ -26,6 +26,7 @@ const char * _cap_get_posit_metavar(const PositionalInfo * pi);
 const char * _cap_type_metavar(DataType type);
 FlagInfo * _cap_parser_find_flag(
     const ArgumentParser * parser, const char * flag);
+void _cap_flag_info_destroy(FlagInfo * info);
 
 // ============================================================================
 // === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
@@ -61,14 +62,18 @@ ArgumentParser * cap_parser_make_empty() {
         .mCustomUsage = NULL,
         .mEnableHelp = false,
         .mEnableUsage = false,
+
         .mFlags = NULL,
         .mFlagCount = 0u,
         .mFlagAlloc = 0u,
+
         .mPositionals = NULL,
         .mPositionalCount = 0u,
         .mPositionalAlloc = 0u,
+        
         .mFlagPrefixChars = copy_string("-"),
         .mFlagSeparator = copy_string("--"),
+
         .mHelpFlagIndex = 0u,
         .mHelpIsConfigured = false
     };
@@ -109,11 +114,7 @@ void cap_parser_destroy(ArgumentParser * parser) {
     delete_string_property(&(parser -> mEpilogue));
     delete_string_property(&(parser -> mCustomHelp));
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
-        FlagInfo * fi = parser -> mFlags[i];
-        delete_string_property(&(fi -> mName));
-        delete_string_property(&(fi -> mMetaVar));
-        delete_string_property(&(fi -> mDescription));
-        free(fi);
+        _cap_flag_info_destroy(parser -> mFlags[i]);
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         PositionalInfo * pi = parser -> mPositionals[i];
@@ -504,8 +505,8 @@ void cap_parser_set_help_flag(
         return;
     }
     if (parser -> mHelpIsConfigured) {
-        FlagInfo * help_flag_info = parser -> mFlags[parser -> mHelpFlagIndex];
         // name is identical -> there's nothing to do
+        FlagInfo * help_flag_info = parser -> mFlags[parser -> mHelpFlagIndex];
         if (name && !strcmp(name, help_flag_info -> mName)) {
             return;
         }
@@ -514,11 +515,9 @@ void cap_parser_set_help_flag(
         // don't need to check if flagCount > 0 because at least a help flag 
         // exists
         FlagInfo * last_flag = parser -> mFlags[parser -> mFlagCount - 1u];
-        delete_string_property(&(help_flag_info -> mName));
-        delete_string_property(&(help_flag_info -> mMetaVar));
-        delete_string_property(&(help_flag_info -> mDescription));
+        _cap_flag_info_destroy(help_flag_info);
         if (help_flag_info != last_flag) {
-            *help_flag_info = *last_flag;
+            parser -> mFlags[parser -> mHelpFlagIndex] = last_flag;
         }
         --parser -> mFlagCount;
         parser -> mHelpIsConfigured = false;
@@ -1100,6 +1099,13 @@ FlagInfo * _cap_parser_find_flag(
         }
     }
     return NULL;
+}
+
+void _cap_flag_info_destroy(FlagInfo * info) {
+    delete_string_property(&(info -> mName));
+    delete_string_property(&(info -> mMetaVar));
+    delete_string_property(&(info -> mDescription));
+    free(info);
 }
 
 #endif
