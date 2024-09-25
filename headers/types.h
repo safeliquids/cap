@@ -167,7 +167,6 @@ typedef struct {
     DataType mType;
     int mMinCount;
     int mMaxCount;
-    bool mIsHelp;
 } FlagInfo;
 
 /**
@@ -228,9 +227,7 @@ typedef struct {
     char * mFlagPrefixChars;
     char * mFlagSeparator;
 
-    size_t mHelpFlagIndex;
-    bool mHelpIsConfigured;
-
+    FlagInfo * mHelpFlagInfo;
 } ArgumentParser;
 
 /**

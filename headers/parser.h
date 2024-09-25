@@ -73,9 +73,7 @@ ArgumentParser * cap_parser_make_empty() {
         
         .mFlagPrefixChars = copy_string("-"),
         .mFlagSeparator = copy_string("--"),
-
-        .mHelpFlagIndex = 0u,
-        .mHelpIsConfigured = false
+        .mHelpFlagInfo = NULL
     };
     return p;
 }
@@ -133,7 +131,10 @@ void cap_parser_destroy(ArgumentParser * parser) {
     delete_string_property(&(parser -> mFlagPrefixChars));
     delete_string_property(&(parser -> mFlagSeparator));
 
-    parser -> mHelpIsConfigured = false;
+    if (parser -> mHelpFlagInfo) {
+        _cap_flag_info_destroy(parser -> mHelpFlagInfo);
+    }
+    parser -> mHelpFlagInfo = NULL;
 
     free(parser);
 }
@@ -176,7 +177,7 @@ void cap_parser_set_flag_prefix(
         fprintf(stderr, "cap: missing flag prefix characters\n");
         exit(-1);
     }
-    if (parser -> mFlagCount) {
+    if (parser -> mFlagCount || parser -> mHelpFlagInfo) {
         fprintf(
             stderr, "cap: cannot set flag prefix characters when flags "
             "already exist\n");
@@ -217,6 +218,12 @@ void cap_parser_set_flag_separator(
     if (!parser) return;
     if (separator && strlen(separator) == 0) {
         fprintf(stderr, "cap: missing flag separator\n");
+        exit(-1);
+    }
+    if (_cap_parser_find_flag(parser, separator)) {
+        fprintf(
+            stderr, "cap: cannot set '%s' as flag separator - this flag"
+            " already exists\n", separator);
         exit(-1);
     }
     set_string_property(&(parser -> mFlagSeparator), separator);
@@ -443,6 +450,11 @@ void cap_parser_add_flag(
             "to the flag separato \"%s\"\n", flag_separator);
         exit(-1);
     }
+    // this also checks agains the help flag if it exists
+    if (_cap_parser_find_flag(parser, flag)) {
+        fprintf(stderr, "cap: duplicate flag definition %s\n", flag);
+        exit(-1);
+    }
     if (min_count < 0) {
         fprintf(stderr, "cap: min_count requirement must not be negative\n");
         exit(-1);
@@ -455,10 +467,6 @@ void cap_parser_add_flag(
     }
     if (min_count == 0 && max_count == 0) {
         fprintf(stderr, "cap: min_count and max_count cannot be both zero\n");
-        exit(-1);
-    }
-    if (_cap_parser_find_flag(parser, flag)) {
-        fprintf(stderr, "cap: duplicate flag definition %s\n", flag);
         exit(-1);
     }
     if (parser -> mFlagCount >= parser -> mFlagAlloc) {
@@ -504,23 +512,14 @@ void cap_parser_set_help_flag(
     if (!parser) {
         return;
     }
-    if (parser -> mHelpIsConfigured) {
+    if (parser -> mHelpFlagInfo) {
         // name is identical -> there's nothing to do
-        FlagInfo * help_flag_info = parser -> mFlags[parser -> mHelpFlagIndex];
-        if (name && !strcmp(name, help_flag_info -> mName)) {
+        if (name && !strcmp(name, parser -> mHelpFlagInfo -> mName)) {
             return;
         }
         // now we un-configure the existing help flag
-
-        // don't need to check if flagCount > 0 because at least a help flag 
-        // exists
-        FlagInfo * last_flag = parser -> mFlags[parser -> mFlagCount - 1u];
-        _cap_flag_info_destroy(help_flag_info);
-        if (help_flag_info != last_flag) {
-            parser -> mFlags[parser -> mHelpFlagIndex] = last_flag;
-        }
-        --parser -> mFlagCount;
-        parser -> mHelpIsConfigured = false;
+        _cap_flag_info_destroy(parser -> mHelpFlagInfo);
+        parser -> mHelpFlagInfo = NULL;
     }
     
     // at this moment, the help flag is definitely not configured: either it 
@@ -531,11 +530,26 @@ void cap_parser_set_help_flag(
         return;
     }
 
-    cap_parser_add_flag(
-        parser, name, DT_PRESENCE, 0, -1, NULL, 
-        description ? description : "Display this help message and exit");
-    parser -> mHelpIsConfigured = true;
-    parser -> mHelpFlagIndex = parser -> mFlagCount - 1u;
+    if (_cap_parser_find_flag(parser, name)) {
+        fprintf(
+            stderr, "cap: cannot add help flag '%s' because an identical flag"
+            " already exists\n", name);
+        exit(-1);
+    }
+    if (*name == '\0' || !strchr(parser -> mFlagPrefixChars, *name)) {
+        fprintf(stderr, "cap: invalid flag name '%s'\n", name);
+        exit(-1);
+    }
+    parser -> mHelpFlagInfo = (FlagInfo *) malloc(sizeof(FlagInfo));
+    *parser -> mHelpFlagInfo = (FlagInfo) {
+        .mName = copy_string(name),
+        .mMetaVar = NULL,
+        .mDescription = copy_string(
+            description ? description : "Display this help message and exit"),
+        .mType =  DT_PRESENCE,
+        .mMinCount = 0,
+        .mMaxCount = -1
+    };
 }
 
 // ============================================================================
@@ -671,6 +685,10 @@ void cap_parser_print_usage(
     fprintf(file, "\t");
     fprintf(file, "%s", cap_parser_get_program_name(parser, argv0));
 
+    if (parser -> mHelpFlagInfo) {
+        fprintf(file, " [%s]", parser -> mHelpFlagInfo -> mName);
+    }
+
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         const FlagInfo * fi = parser -> mFlags[i];
         fputc(' ', file);
@@ -755,6 +773,13 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
     if (parser -> mFlagCount) {
         fprintf(file, "\nAvailable flags:\n");
     }
+    if (parser -> mHelpFlagInfo) {
+        fprintf(file, "\t%s", parser -> mHelpFlagInfo -> mName);
+        if (parser -> mHelpFlagInfo -> mDescription) {
+            fprintf(file, "\t%s", parser -> mHelpFlagInfo -> mDescription);
+        }
+        fputc('\n', file);
+    }
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         const FlagInfo * fi = parser -> mFlags[i];
         fprintf(file, "\t%s", fi -> mName);
@@ -817,9 +842,7 @@ ParsingResult cap_parser_parse_noexit(
     // flag separator always exists if it is not disabled.
     const char * const prefix_chars = parser -> mFlagPrefixChars;
     const char * const flag_separator = parser -> mFlagSeparator;
-
-    const FlagInfo * const help_flag_info = parser -> mHelpIsConfigured 
-        ? parser -> mFlags[parser -> mHelpFlagIndex] : NULL;
+    const FlagInfo * const help_flag_info = parser -> mHelpFlagInfo;
 
     int index = 0;
     bool positional_only = false;
@@ -1092,6 +1115,9 @@ const char * _cap_type_metavar(DataType type) {
 
 FlagInfo * _cap_parser_find_flag(
         const ArgumentParser * parser, const char * flag) {
+    if (parser -> mHelpFlagInfo && !strcmp(flag, parser -> mHelpFlagInfo -> mName)) {
+        return parser -> mHelpFlagInfo;
+    }
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         FlagInfo * fi = parser -> mFlags[i];
         if (!strcmp(flag, fi -> mName)) {
