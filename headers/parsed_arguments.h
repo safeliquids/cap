@@ -186,13 +186,9 @@ void cap_pa_add_flag(
             args -> mFlags = (ParsedFlag *) realloc(
                 args -> mFlags, (args -> mFlagAlloc) * sizeof(ParsedFlag));
         }
-
-        int flag_length = strlen(flag);
-        char * flag_copy = (char *) malloc((flag_length + 1) * sizeof(char));
-        memcpy(flag_copy, flag, flag_length + 1);
         
         ParsedFlag new_flag = (ParsedFlag) {
-            .mName = flag_copy,
+            .mName = copy_string(flag),
             .mValueCount = 0u,
             .mValueAlloc = 1u,
             .mValues = (TypedUnion *) malloc(sizeof(TypedUnion))
@@ -290,12 +286,8 @@ void cap_pa_set_positional(
             args -> mPositionalAlloc * sizeof(ParsedPositional));
     }
 
-    int name_length = strlen(name);
-    char * name_copy = (char *) malloc((name_length + 1) * sizeof(char));
-    memcpy(name_copy, name, name_length + 1);
-
     ParsedPositional new_positional = (ParsedPositional) {
-        .mName = name_copy,
+        .mName = copy_string(name),
         .mValue = value
     };
 

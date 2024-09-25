@@ -21,8 +21,6 @@ bool _cap_parse_double(const char * word, double * value);
 bool _cap_parse_int(const char * word, int * value);
 bool _cap_parse_word_as_type(
     const char * word, DataType type, TypedUnion * uninitialized_tu);
-void _cap_set_string_property(char ** property, const char * value);
-void _cap_delete_string_property(char ** property);
 const char * _cap_get_flag_metavar(const FlagInfo * fi);
 const char * _cap_get_posit_metavar(const PositionalInfo * pi);
 const char * _cap_type_metavar(DataType type);
@@ -105,28 +103,20 @@ void cap_parser_destroy(ArgumentParser * parser) {
         free(parser -> mProgramName);
         parser -> mProgramName = NULL;
     }
-    _cap_delete_string_property(&(parser -> mDescription));
-    _cap_delete_string_property(&(parser -> mEpilogue));
-    _cap_delete_string_property(&(parser -> mCustomHelp));
+    delete_string_property(&(parser -> mDescription));
+    delete_string_property(&(parser -> mEpilogue));
+    delete_string_property(&(parser -> mCustomHelp));
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         FlagInfo * fi = parser -> mFlags + i;
-        free(fi -> mName);
-        fi -> mName = NULL;
-        if (fi -> mMetaVar) {
-            free(fi -> mMetaVar);
-            fi -> mMetaVar = NULL;
-        }
-        _cap_delete_string_property(&(fi -> mDescription));
+        delete_string_property(&(fi -> mName));
+        delete_string_property(&(fi -> mMetaVar));
+        delete_string_property(&(fi -> mDescription));
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         PositionalInfo * pi = parser -> mPositionals + i;
-        free(pi -> mName);
-        pi -> mName = NULL;
-        if (pi -> mMetaVar) {
-            free(pi -> mMetaVar);
-            pi -> mMetaVar = NULL;
-        }
-        _cap_delete_string_property(&(pi -> mDescription));
+        delete_string_property(&(pi -> mName));
+        delete_string_property(&(pi -> mMetaVar));
+        delete_string_property(&(pi -> mDescription));
     }
     free(parser -> mFlags);
     free(parser -> mPositionals);
@@ -135,8 +125,8 @@ void cap_parser_destroy(ArgumentParser * parser) {
     parser -> mFlagCount = parser -> mFlagAlloc = 0u;
     parser -> mPositionalCount = parser -> mPositionalAlloc = 0;
 
-    free(parser -> mFlagPrefixChars);
-    free(parser -> mFlagSeparator);
+    delete_string_property(&(parser -> mFlagPrefixChars));
+    delete_string_property(&(parser -> mFlagSeparator));
 
     parser -> mHelpIsConfigured = false;
 
@@ -187,14 +177,11 @@ void cap_parser_set_flag_prefix(
             "already exist\n");
         exit(-1);
     }
-    free(parser -> mFlagPrefixChars);
-    parser -> mFlagPrefixChars = copy_string(prefix_chars);
-    if (parser -> mFlagSeparator) {
-        free(parser -> mFlagSeparator);
-    }
+    set_string_property(&(parser -> mFlagPrefixChars), prefix_chars);
     char * s = (char *) malloc(3 * sizeof(char));
     s[0] = s[1] = *prefix_chars;
     s[2] = 0;
+    delete_string_property(&(parser -> mFlagSeparator));
     parser -> mFlagSeparator = s;
     return;
 }
@@ -223,20 +210,11 @@ void cap_parser_set_flag_prefix(
 void cap_parser_set_flag_separator(
         ArgumentParser * parser, const char * separator) {
     if (!parser) return;
-    if (!separator) {
-        if (parser -> mFlagSeparator) {
-            free(parser -> mFlagSeparator);
-        }
-        return;
-    }
-    if (strlen(separator) == 0) {
+    if (separator && strlen(separator) == 0) {
         fprintf(stderr, "cap: missing flag separator\n");
         exit(-1);
     }
-    if (parser -> mFlagSeparator) {
-        free(parser -> mFlagSeparator);
-    }
-    parser -> mFlagSeparator = copy_string(separator);
+    set_string_property(&(parser -> mFlagSeparator), separator);
 }
 
 /**
@@ -254,14 +232,7 @@ void cap_parser_set_program_name(ArgumentParser * parser, const char * name) {
     if (!parser) {
         return;
     }
-    if (parser -> mProgramName) {
-        free(parser -> mProgramName);
-        parser -> mProgramName = NULL;
-    }
-    if (!name) {
-        return;
-    }
-    parser -> mProgramName = copy_string(name);
+    set_string_property(&(parser -> mProgramName), name);
 }
 
 /**
@@ -282,7 +253,7 @@ void cap_parser_set_description(ArgumentParser * parser, const char * descriptio
     if (!parser) {
         return;
     }
-    _cap_set_string_property(&(parser -> mDescription), description);
+    set_string_property(&(parser -> mDescription), description);
 }
 
 /**
@@ -303,7 +274,7 @@ void cap_parser_set_epilogue(ArgumentParser * parser, const char * epilogue) {
     if (!parser) {
         return;
     }
-    _cap_set_string_property(&(parser -> mEpilogue), epilogue);
+    set_string_property(&(parser -> mEpilogue), epilogue);
 }
 
 /**
@@ -331,7 +302,7 @@ void cap_parser_set_custom_help(ArgumentParser * parser, const char * help) {
     if (!parser) {
         return;
     }
-    _cap_set_string_property(&(parser -> mCustomHelp), help);
+    set_string_property(&(parser -> mCustomHelp), help);
 }
 
 /**
@@ -355,7 +326,7 @@ void cap_parser_set_custom_usage(ArgumentParser * parser, const char * usage) {
     if (!parser) {
         return;
     }
-    _cap_set_string_property(&(parser -> mCustomUsage), usage);
+    set_string_property(&(parser -> mCustomUsage), usage);
 }
 
 /**
@@ -497,8 +468,8 @@ void cap_parser_add_flag(
     }
     FlagInfo new_flag = (FlagInfo) {
         .mName = copy_string(flag),
-        .mMetaVar = metavar ? copy_string(metavar) : NULL,
-        .mDescription = description ? copy_string(description) : NULL,
+        .mMetaVar = copy_string(metavar),
+        .mDescription = copy_string(description),
         .mType = type,
         .mMinCount = min_count,
         .mMaxCount = max_count
@@ -541,9 +512,9 @@ void cap_parser_set_help_flag(
         // don't need to check if flagCount > 0 because at least a help flag 
         // exists
         FlagInfo * last_flag = parser -> mFlags + parser -> mFlagCount - 1u;
-        _cap_delete_string_property(&(help_flag_info -> mName));
-        _cap_delete_string_property(&(help_flag_info -> mMetaVar));
-        _cap_delete_string_property(&(help_flag_info -> mDescription));
+        delete_string_property(&(help_flag_info -> mName));
+        delete_string_property(&(help_flag_info -> mMetaVar));
+        delete_string_property(&(help_flag_info -> mDescription));
         if (help_flag_info != last_flag) {
             *help_flag_info = *last_flag;
         }
@@ -631,8 +602,8 @@ void cap_parser_add_positional(
     }
     PositionalInfo new_positional = (PositionalInfo) {
         .mName = copy_string(name),
-        .mMetaVar = metavar ? copy_string(metavar) : NULL,
-        .mDescription = description ? copy_string(description) : NULL,
+        .mMetaVar = copy_string(metavar),
+        .mDescription = copy_string(description),
         .mType = type
     };
     parser -> mPositionals[parser -> mPositionalCount++] = new_positional;
@@ -1083,25 +1054,6 @@ bool _cap_parse_word_as_type(
             break;
     }
     return false;
-}
-
-void _cap_set_string_property(char ** property, const char * value) {
-    if (*property) {
-        free(*property);
-        *property = NULL;
-    }
-    if (!value) {
-        return;
-    }
-    *property = copy_string(value);
-}
-
-void _cap_delete_string_property(char ** property) {
-    if (!*property) {
-        return;
-    }
-    free(*property);
-    *property = NULL;
 }
 
 const char * _cap_get_flag_metavar(const FlagInfo * fi) {
