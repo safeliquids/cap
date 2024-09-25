@@ -53,6 +53,7 @@ void cap_parser_enable_usage(ArgumentParser * parser, bool enable);
  * @return new object
  * 
  * @see cap_parser_destroy
+ * @see cap_parser_make_default
  */
 ArgumentParser * cap_parser_make_empty() {
     ArgumentParser * p = (ArgumentParser *) malloc(sizeof(ArgumentParser));
@@ -83,9 +84,12 @@ ArgumentParser * cap_parser_make_empty() {
 /**
  * Creates a new default parser.
  * 
- * Creates a new parser with default configuration. It differs from an empty parser in that it contains exactly one flag - the automatic help flag "-h".
+ * Creates a new parser with default configuration. It differs from an empty 
+ * parser in that it contains the automatic help flag "-h" and the flag 
+ * separator "--" that switches the parser to positional-only mode.
  * 
  * @see cap_parser_make_empty
+ * @see cap_parser_destroy
  */
 ArgumentParser * cap_parser_make_default() {
     ArgumentParser * parser = cap_parser_make_empty();
@@ -165,7 +169,8 @@ void cap_parser_destroy(ArgumentParser * parser) {
  * are present when calling this function, the program exits with an error.
  * 
  * @param parser parser object to configure
- * @param prefix_chars null-terminated string of characters that should be considered flag prefixes.
+ * @param prefix_chars null-terminated string of characters that should be 
+ *        considered flag prefixes.
  */
 void cap_parser_set_flag_prefix(
         ArgumentParser * parser, const char * prefix_chars) {
@@ -193,12 +198,13 @@ void cap_parser_set_flag_prefix(
  * used as positionals even if they begin with a flag prefix character.
  * By default the flag separator is '--' (double dash). 
  * 
+ * If the given string is empty or a flag already exists with the same name, 
+ * the program exits with an error. This string is copied into the parser and
+ * the caller remains the owner of the given pointer.
+ * 
  * @param parser parser object to configure
  * @param separator null-terminated string containing the new flag separator.
  *        If `NULL` is given, the flag separator is explicitly disabled.
- *        If an empty string is given, the program exits with an error.
- *        This string is copied into the parser and the caller remains the owner 
- *        of the given pointer.
  */
 void cap_parser_set_flag_separator(
         ArgumentParser * parser, const char * separator) {
@@ -388,11 +394,11 @@ void cap_parser_enable_usage(ArgumentParser * parser, bool enable) {
  * 
  * Registers a new flag in `parser` under the name `flag`. The flag's name must 
  * be unique and the program exits with an error if a duplicate flag name is 
- * given. The flag name must begin with a flag prefix character, either the 
- * default '-' or one of the characters previously configured using 
- * `cap_parser_set_flag_prefix`. Flag names may not be identical to the flag 
- * separator, either the default '--', or one configured using 
- * `cap_parser_set_flag_separator`.
+ * given. Flag names may not be identical to the flag separator. Do note that, 
+ * the `cap_parser_make_default` factory returns a parser containg the default 
+ * flag separator and the default help falg '-h'. Additionally, the flag name 
+ * must begin with a flag prefix character, either the default '-' or one of 
+ * the characters previously configured using  `cap_parser_set_flag_prefix`.
  * 
  * The `type` parameter specifies the type of the value stored in this flag. 
  * The type `DT_PRESENCE` should be used if a flag should not store any 
