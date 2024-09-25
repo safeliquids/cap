@@ -217,11 +217,11 @@ typedef struct {
     bool mEnableHelp;
     bool mEnableUsage;
 
-    FlagInfo * mFlags;
+    FlagInfo ** mFlags;
     size_t mFlagCount;
     size_t mFlagAlloc;
 
-    PositionalInfo * mPositionals;
+    PositionalInfo ** mPositionals;
     size_t mPositionalCount;
     size_t mPositionalAlloc;
 

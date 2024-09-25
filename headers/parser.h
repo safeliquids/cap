@@ -24,6 +24,8 @@ bool _cap_parse_word_as_type(
 const char * _cap_get_flag_metavar(const FlagInfo * fi);
 const char * _cap_get_posit_metavar(const PositionalInfo * pi);
 const char * _cap_type_metavar(DataType type);
+FlagInfo * _cap_parser_find_flag(
+    const ArgumentParser * parser, const char * flag);
 
 // ============================================================================
 // === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
@@ -107,16 +109,18 @@ void cap_parser_destroy(ArgumentParser * parser) {
     delete_string_property(&(parser -> mEpilogue));
     delete_string_property(&(parser -> mCustomHelp));
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
-        FlagInfo * fi = parser -> mFlags + i;
+        FlagInfo * fi = parser -> mFlags[i];
         delete_string_property(&(fi -> mName));
         delete_string_property(&(fi -> mMetaVar));
         delete_string_property(&(fi -> mDescription));
+        free(fi);
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
-        PositionalInfo * pi = parser -> mPositionals + i;
+        PositionalInfo * pi = parser -> mPositionals[i];
         delete_string_property(&(pi -> mName));
         delete_string_property(&(pi -> mMetaVar));
         delete_string_property(&(pi -> mDescription));
+        free(pi);
     }
     free(parser -> mFlags);
     free(parser -> mPositionals);
@@ -452,21 +456,19 @@ void cap_parser_add_flag(
         fprintf(stderr, "cap: min_count and max_count cannot be both zero\n");
         exit(-1);
     }
-    for (size_t i = 0; i < parser -> mFlagCount; ++i) {
-        FlagInfo * fi = parser -> mFlags + i;
-        if (strcmp(fi -> mName, flag) == 0) {
-            fprintf(stderr, "cap: duplicate flag definition %s\n", flag);
-            exit(-1);
-        }
+    if (_cap_parser_find_flag(parser, flag)) {
+        fprintf(stderr, "cap: duplicate flag definition %s\n", flag);
+        exit(-1);
     }
     if (parser -> mFlagCount >= parser -> mFlagAlloc) {
         size_t alloc_size = parser -> mFlagAlloc;
         alloc_size = alloc_size ? alloc_size * 2 : 1;
         parser -> mFlagAlloc = alloc_size;
-        parser -> mFlags = (FlagInfo *) realloc(
-            parser -> mFlags, alloc_size * sizeof(FlagInfo));
+        parser -> mFlags = (FlagInfo **) realloc(
+            parser -> mFlags, alloc_size * sizeof(FlagInfo *));
     }
-    FlagInfo new_flag = (FlagInfo) {
+    FlagInfo * new_flag = (FlagInfo *) malloc(sizeof(FlagInfo));
+    *new_flag = (FlagInfo) {
         .mName = copy_string(flag),
         .mMetaVar = copy_string(metavar),
         .mDescription = copy_string(description),
@@ -502,7 +504,7 @@ void cap_parser_set_help_flag(
         return;
     }
     if (parser -> mHelpIsConfigured) {
-        FlagInfo * help_flag_info = parser -> mFlags + parser -> mHelpFlagIndex;
+        FlagInfo * help_flag_info = parser -> mFlags[parser -> mHelpFlagIndex];
         // name is identical -> there's nothing to do
         if (name && !strcmp(name, help_flag_info -> mName)) {
             return;
@@ -511,7 +513,7 @@ void cap_parser_set_help_flag(
 
         // don't need to check if flagCount > 0 because at least a help flag 
         // exists
-        FlagInfo * last_flag = parser -> mFlags + parser -> mFlagCount - 1u;
+        FlagInfo * last_flag = parser -> mFlags[parser -> mFlagCount - 1u];
         delete_string_property(&(help_flag_info -> mName));
         delete_string_property(&(help_flag_info -> mMetaVar));
         delete_string_property(&(help_flag_info -> mDescription));
@@ -588,7 +590,8 @@ void cap_parser_add_positional(
         exit(-1);
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
-        if (!strcmp(parser -> mPositionals[i].mName, name)) {
+        const PositionalInfo * pi = parser -> mPositionals[i];
+        if (!strcmp(pi -> mName, name)) {
             fprintf(stderr, "cap: duplicate positional argument %s\n", name);
             exit(-1);
         }
@@ -597,10 +600,11 @@ void cap_parser_add_positional(
         size_t alloc_size = parser -> mPositionalAlloc;
         alloc_size = alloc_size ? alloc_size * 2 : 1;
         parser -> mPositionalAlloc = alloc_size;
-        parser -> mPositionals = (PositionalInfo *) realloc(
-            parser -> mPositionals, alloc_size * sizeof(PositionalInfo));
+        parser -> mPositionals = (PositionalInfo **) realloc(
+            parser -> mPositionals, alloc_size * sizeof(PositionalInfo *));
     }
-    PositionalInfo new_positional = (PositionalInfo) {
+    PositionalInfo * new_positional = (PositionalInfo *) malloc(sizeof(PositionalInfo));
+    *new_positional = (PositionalInfo) {
         .mName = copy_string(name),
         .mMetaVar = copy_string(metavar),
         .mDescription = copy_string(description),
@@ -669,7 +673,7 @@ void cap_parser_print_usage(
     fprintf(file, "%s", cap_parser_get_program_name(parser, argv0));
 
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
-        const FlagInfo * fi = parser -> mFlags + i;
+        const FlagInfo * fi = parser -> mFlags[i];
         fputc(' ', file);
         if (fi -> mMinCount == 0) {
             fputc('[', file);
@@ -709,7 +713,7 @@ void cap_parser_print_usage(
         fprintf(file, " [%s]", parser -> mFlagSeparator);
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
-        const PositionalInfo * pi = parser -> mPositionals + i;
+        const PositionalInfo * pi = parser -> mPositionals[i];
         if (pi -> mMetaVar) {
             fprintf(file, " %s", pi -> mMetaVar);
             continue;
@@ -753,7 +757,7 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
         fprintf(file, "\nAvailable flags:\n");
     }
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
-        const FlagInfo * fi = parser -> mFlags + i;
+        const FlagInfo * fi = parser -> mFlags[i];
         fprintf(file, "\t%s", fi -> mName);
         if (fi -> mType != DT_PRESENCE) {
             fprintf(file, " %s", _cap_get_flag_metavar(fi));
@@ -768,7 +772,7 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
         fprintf(file, "\nPositional Arguments:\n");
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
-        const PositionalInfo * pi = parser -> mPositionals + i;
+        const PositionalInfo * pi = parser -> mPositionals[i];
         fprintf(file, "\t%s", _cap_get_posit_metavar(pi));
         if (pi -> mDescription) {
             fprintf(file, "\t%s", pi -> mDescription);
@@ -816,7 +820,7 @@ ParsingResult cap_parser_parse_noexit(
     const char * const flag_separator = parser -> mFlagSeparator;
 
     const FlagInfo * const help_flag_info = parser -> mHelpIsConfigured 
-        ? parser -> mFlags + parser -> mHelpFlagIndex : NULL;
+        ? parser -> mFlags[parser -> mHelpFlagIndex] : NULL;
 
     int index = 0;
     bool positional_only = false;
@@ -842,7 +846,7 @@ ParsingResult cap_parser_parse_noexit(
                 result.mError = PER_TOO_MANY_POSITIONALS;
                 goto fail;
             }
-            const PositionalInfo * posit_info = parser -> mPositionals + positional_index;
+            const PositionalInfo * posit_info = parser -> mPositionals[positional_index];
             TypedUnion tu;
             if (!_cap_parse_word_as_type(arg, posit_info -> mType, &tu)) {
                 result.mError = PER_CANNOT_PARSE_POSITIONAL;
@@ -857,15 +861,7 @@ ParsingResult cap_parser_parse_noexit(
         // parsing a flag
 
         // 1. is this a flag that exists?
-        size_t i = 0;
-        const FlagInfo * flag_info = NULL;
-        for ( ; i < parser -> mFlagCount; ++i) {
-            const FlagInfo * x = parser -> mFlags + i;
-            if (strcmp(x -> mName, arg) == 0) {
-                flag_info = x;
-                break;
-            }
-        }
+        const FlagInfo * flag_info = _cap_parser_find_flag(parser, arg);
         if (!flag_info) {  // no such flag was found
             result.mError = PER_UNKNOWN_FLAG;
             result.mFirstErrorWord = arg;
@@ -910,7 +906,7 @@ ParsingResult cap_parser_parse_noexit(
 
     // check min and max count requirements for flags
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
-        const FlagInfo * flag_info = parser -> mFlags + i;
+        const FlagInfo * flag_info = parser -> mFlags[i];
         size_t real_count = cap_pa_flag_count(parsed_arguments, flag_info -> mName);
         if (real_count < (unsigned int) flag_info -> mMinCount) {
             result.mError = PER_NOT_ENOUGH_FLAGS;
@@ -1093,6 +1089,17 @@ const char * _cap_type_metavar(DataType type) {
             type_metavar = NULL;
     }
     return type_metavar;
+}
+
+FlagInfo * _cap_parser_find_flag(
+        const ArgumentParser * parser, const char * flag) {
+    for (size_t i = 0; i < parser -> mFlagCount; ++i) {
+        FlagInfo * fi = parser -> mFlags[i];
+        if (!strcmp(flag, fi -> mName)) {
+            return fi;
+        }
+    }
+    return NULL;
 }
 
 #endif
