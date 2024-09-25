@@ -36,7 +36,7 @@ void _print_flag_info(FILE * file, const FlagInfo * flag);
 void cap_parser_set_help_flag(
         ArgumentParser * parser, const char * name, const char * description);
 void cap_parser_set_flag_separator(
-    ArgumentParser * parser, const char * separator);
+    ArgumentParser * parser, const char * separator, const char * description);
 void cap_parser_enable_help(ArgumentParser * parser, bool enable);
 void cap_parser_enable_usage(ArgumentParser * parser, bool enable);
 
@@ -95,7 +95,7 @@ ArgumentParser * cap_parser_make_empty() {
 ArgumentParser * cap_parser_make_default() {
     ArgumentParser * parser = cap_parser_make_empty();
     cap_parser_set_help_flag(parser, "-h", NULL);
-    cap_parser_set_flag_separator(parser, "--");
+    cap_parser_set_flag_separator(parser, "--", NULL);
     cap_parser_enable_help(parser, true);
     cap_parser_enable_usage(parser, true);
     return parser;
@@ -203,12 +203,19 @@ void cap_parser_set_flag_prefix(
  * the program exits with an error. This string is copied into the parser and
  * the caller remains the owner of the given pointer.
  * 
+ * The `description` parameter allows to set a short description of this 
+ * separator which appears in help messages. If `NULL` is given, a default
+ * description is used. If the description should be blank, an empty string 
+ * should be passed to this function.
+ * 
  * @param parser parser object to configure
  * @param separator null-terminated string containing the new flag separator.
  *        If `NULL` is given, the flag separator is explicitly disabled.
+ * @param description short description of this symbol for use in help mesages.
  */
 void cap_parser_set_flag_separator(
-        ArgumentParser * parser, const char * separator) {
+        ArgumentParser * parser, const char * separator, 
+        const char * description) {
     if (!parser) return;
     if (separator && strlen(separator) == 0) {
         fprintf(stderr, "cap: missing flag separator\n");
@@ -231,7 +238,9 @@ void cap_parser_set_flag_separator(
     *parser -> mFlagSeparatorInfo = (FlagInfo) {
         .mName = copy_string(separator),
         .mMetaVar = NULL,
-        .mDescription = NULL,
+        .mDescription = copy_string(
+            description ? description : "Treat all following command line"
+            " arguments as positionals"),
         .mType = DT_PRESENCE,
         .mMinCount = 0,
         .mMaxCount = -1
