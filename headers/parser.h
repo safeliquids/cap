@@ -27,6 +27,7 @@ const char * _cap_type_metavar(DataType type);
 FlagInfo * _cap_parser_find_flag(
     const ArgumentParser * parser, const char * flag);
 void _cap_flag_info_destroy(FlagInfo * info);
+void _print_flag_info(FILE * file, const FlagInfo * flag);
 
 // ============================================================================
 // === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
@@ -697,31 +698,9 @@ void cap_parser_print_usage(
             fputc('[', file);
         }
         fprintf(file, "%s", fi -> mName);
-        do {
-            if (fi -> mType == DT_PRESENCE) break;
-            if (fi -> mMetaVar) {
-                fprintf(file, " %s", fi -> mMetaVar);
-                break;
-            }
-            const char * type_metavar;
-            switch (fi -> mType) {
-                case DT_DOUBLE:
-                    type_metavar = "DOUBLE";
-                    break;
-                case DT_INT:
-                    type_metavar = "INT";
-                    break;
-                case DT_STRING:
-                    type_metavar = "STRING";
-                    break;
-                case DT_PRESENCE:
-                default:
-                    type_metavar = NULL;
-            }
-            if (type_metavar) {
-                fprintf(file, " %s", type_metavar);
-            }
-        } while (false);
+        if (fi -> mType != DT_PRESENCE) {
+            fprintf(file, " %s", _cap_get_flag_metavar(fi));
+        }
         if (fi -> mMinCount == 0) {
             fputc(']', file);
         }
@@ -775,29 +754,14 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
         fprintf(file, "\nAvailable flags:\n");
     }
     if (parser -> mHelpFlagInfo) {
-        fprintf(file, "\t%s", parser -> mHelpFlagInfo -> mName);
-        if (parser -> mHelpFlagInfo -> mDescription) {
-            fprintf(file, "\t%s", parser -> mHelpFlagInfo -> mDescription);
-        }
-        fputc('\n', file);
+        _print_flag_info(file, parser -> mHelpFlagInfo);
     }
     if (parser -> mFlagSeparatorInfo) {
-        fprintf(file, "\t%s", parser -> mFlagSeparatorInfo -> mName);
-        if (parser -> mFlagSeparatorInfo -> mDescription) {
-            fprintf(file, "\t%s", parser -> mFlagSeparatorInfo -> mDescription);
-        }
-        fputc('\n', file);
+        _print_flag_info(file, parser -> mFlagSeparatorInfo);
     }
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         const FlagInfo * fi = parser -> mFlags[i];
-        fprintf(file, "\t%s", fi -> mName);
-        if (fi -> mType != DT_PRESENCE) {
-            fprintf(file, " %s", _cap_get_flag_metavar(fi));
-        }
-        if (fi -> mDescription) {
-            fprintf(file, "\t%s", fi -> mDescription);
-        }
-        fputc('\n', file);
+        _print_flag_info(file, fi);
     }
 
     if (parser -> mPositionalCount) {
@@ -1099,7 +1063,7 @@ const char * _cap_get_posit_metavar(const PositionalInfo * pi) {
     if (pi -> mMetaVar) {
         return pi -> mMetaVar;
     }
-    return _cap_type_metavar(pi -> mType);
+    return pi -> mName;
 }
 
 const char * _cap_type_metavar(DataType type) {
@@ -1146,6 +1110,17 @@ void _cap_flag_info_destroy(FlagInfo * info) {
     delete_string_property(&(info -> mMetaVar));
     delete_string_property(&(info -> mDescription));
     free(info);
+}
+
+void _print_flag_info(FILE * file, const FlagInfo * flag) {
+    fprintf(file, "\t%s", flag -> mName);
+    if (flag -> mType != DT_PRESENCE) {
+        fprintf(file, " %s", _cap_get_flag_metavar(flag));
+    }
+    if (flag -> mDescription) {
+        fprintf(file, "\t%s", flag -> mDescription);
+    }
+    fputc('\n', file);
 }
 
 #endif
