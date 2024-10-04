@@ -26,8 +26,17 @@ const char * _cap_get_posit_metavar(const PositionalInfo * pi);
 const char * _cap_type_metavar(DataType type);
 FlagInfo * _cap_parser_find_flag(
     const ArgumentParser * parser, const char * flag);
+static FlagInfo * _cap_flag_info_make(
+    const char * name, const char * metaVar, const char * description,
+    DataType type, int min_count, int max_count);
 void _cap_flag_info_destroy(FlagInfo * info);
-void _print_flag_info(FILE * file, const FlagInfo * flag);
+void _cap_print_flag_info(FILE * file, const FlagInfo * flag);
+
+static PositionalInfo * _cap_positional_info_make(
+    const char * name, const char * meta_var, const char * description,
+    DataType type);
+static void _cap_positional_info_destroy(PositionalInfo * info);
+static void _cap_print_positional_info(FILE * file, const PositionalInfo * info);
 
 // ============================================================================
 // === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
@@ -123,11 +132,7 @@ void cap_parser_destroy(ArgumentParser * parser) {
         _cap_flag_info_destroy(parser -> mFlags[i]);
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
-        PositionalInfo * pi = parser -> mPositionals[i];
-        delete_string_property(&(pi -> mName));
-        delete_string_property(&(pi -> mMetaVar));
-        delete_string_property(&(pi -> mDescription));
-        free(pi);
+        _cap_positional_info_destroy(parser -> mPositionals[i]);
     }
     free(parser -> mFlags);
     free(parser -> mPositionals);
@@ -216,6 +221,9 @@ void cap_parser_set_flag_prefix(
 void cap_parser_set_flag_separator(
         ArgumentParser * parser, const char * separator, 
         const char * description) {
+    static const char * const DEFAULT_FLAG_SEPARATOR_DESCRIPTION 
+        = "Treat all following command line arguments as positionals";
+
     if (!parser) return;
     if (separator && strlen(separator) == 0) {
         fprintf(stderr, "cap: missing flag separator\n");
@@ -234,17 +242,11 @@ void cap_parser_set_flag_separator(
     if (!separator) {
         return;
     }
-    parser -> mFlagSeparatorInfo = (FlagInfo *) malloc(sizeof(FlagInfo));
-    *parser -> mFlagSeparatorInfo = (FlagInfo) {
-        .mName = copy_string(separator),
-        .mMetaVar = NULL,
-        .mDescription = copy_string(
-            description ? description : "Treat all following command line"
-            " arguments as positionals"),
-        .mType = DT_PRESENCE,
-        .mMinCount = 0,
-        .mMaxCount = -1
-    };
+    FlagInfo * separator_info = _cap_flag_info_make(
+        separator, NULL, 
+	description ? description : DEFAULT_FLAG_SEPARATOR_DESCRIPTION,
+       	DT_PRESENCE, 0, -1);
+    parser -> mFlagSeparatorInfo = separator_info;
 }
 
 /**
@@ -487,15 +489,8 @@ void cap_parser_add_flag(
         parser -> mFlags = (FlagInfo **) realloc(
             parser -> mFlags, alloc_size * sizeof(FlagInfo *));
     }
-    FlagInfo * new_flag = (FlagInfo *) malloc(sizeof(FlagInfo));
-    *new_flag = (FlagInfo) {
-        .mName = copy_string(flag),
-        .mMetaVar = copy_string(metavar),
-        .mDescription = copy_string(description),
-        .mType = type,
-        .mMinCount = min_count,
-        .mMaxCount = max_count
-    };
+    FlagInfo * new_flag = _cap_flag_info_make(
+        flag, metavar, description, type, min_count, max_count);
     parser -> mFlags[parser -> mFlagCount++] = new_flag;
 }
 
@@ -520,6 +515,9 @@ void cap_parser_add_flag(
  */
 void cap_parser_set_help_flag(
         ArgumentParser * parser, const char * name, const char * description) {
+    static const char * const DEFAULT_HELP_DESCRIPTION 
+        = "Display this help message and exit";
+
     if (!parser) {
         return;
     }
@@ -551,16 +549,10 @@ void cap_parser_set_help_flag(
         fprintf(stderr, "cap: invalid flag name '%s'\n", name);
         exit(-1);
     }
-    parser -> mHelpFlagInfo = (FlagInfo *) malloc(sizeof(FlagInfo));
-    *parser -> mHelpFlagInfo = (FlagInfo) {
-        .mName = copy_string(name),
-        .mMetaVar = NULL,
-        .mDescription = copy_string(
-            description ? description : "Display this help message and exit"),
-        .mType =  DT_PRESENCE,
-        .mMinCount = 0,
-        .mMaxCount = -1
-    };
+    FlagInfo * fi = _cap_flag_info_make(
+        name, NULL, description ? description : DEFAULT_HELP_DESCRIPTION,
+       	DT_PRESENCE, 0, 1);
+    parser -> mHelpFlagInfo = fi;
 }
 
 // ============================================================================
@@ -627,13 +619,8 @@ void cap_parser_add_positional(
         parser -> mPositionals = (PositionalInfo **) realloc(
             parser -> mPositionals, alloc_size * sizeof(PositionalInfo *));
     }
-    PositionalInfo * new_positional = (PositionalInfo *) malloc(sizeof(PositionalInfo));
-    *new_positional = (PositionalInfo) {
-        .mName = copy_string(name),
-        .mMetaVar = copy_string(metavar),
-        .mDescription = copy_string(description),
-        .mType = type
-    };
+    PositionalInfo * new_positional = _cap_positional_info_make(
+	name, metavar, description, type); 
     parser -> mPositionals[parser -> mPositionalCount++] = new_positional;
 }
 
@@ -763,14 +750,14 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
         fprintf(file, "\nAvailable flags:\n");
     }
     if (parser -> mHelpFlagInfo) {
-        _print_flag_info(file, parser -> mHelpFlagInfo);
+        _cap_print_flag_info(file, parser -> mHelpFlagInfo);
     }
     if (parser -> mFlagSeparatorInfo) {
-        _print_flag_info(file, parser -> mFlagSeparatorInfo);
+        _cap_print_flag_info(file, parser -> mFlagSeparatorInfo);
     }
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         const FlagInfo * fi = parser -> mFlags[i];
-        _print_flag_info(file, fi);
+        _cap_print_flag_info(file, fi);
     }
 
     if (parser -> mPositionalCount) {
@@ -778,11 +765,7 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         const PositionalInfo * pi = parser -> mPositionals[i];
-        fprintf(file, "\t%s", _cap_get_posit_metavar(pi));
-        if (pi -> mDescription) {
-            fprintf(file, "\t%s", pi -> mDescription);
-        }
-        fputc('\n', file);
+	_cap_print_positional_info(file, pi);
     }
 
     if (parser -> mEpilogue) {
@@ -1111,6 +1094,22 @@ FlagInfo * _cap_parser_find_flag(
     return NULL;
 }
 
+static FlagInfo * _cap_flag_info_make(
+        const char * name, const char * meta_var, const char * description,
+        DataType type, int min_count, int max_count) {
+    FlagInfo * info = (FlagInfo *) malloc(sizeof(FlagInfo));
+    *info = (FlagInfo) {
+        .mName = copy_string(name),
+        .mMetaVar = copy_string(meta_var),
+	.mDescription = copy_string(description),
+        .mType = type,
+        .mMinCount = min_count,
+        .mMaxCount = max_count	
+    };
+    return info;
+}
+
+
 void _cap_flag_info_destroy(FlagInfo * info) {
     if (!info) {
         return;
@@ -1121,13 +1120,44 @@ void _cap_flag_info_destroy(FlagInfo * info) {
     free(info);
 }
 
-void _print_flag_info(FILE * file, const FlagInfo * flag) {
+void _cap_print_flag_info(FILE * file, const FlagInfo * flag) {
     fprintf(file, "\t%s", flag -> mName);
     if (flag -> mType != DT_PRESENCE) {
         fprintf(file, " %s", _cap_get_flag_metavar(flag));
     }
     if (flag -> mDescription) {
         fprintf(file, "\t%s", flag -> mDescription);
+    }
+    fputc('\n', file);
+}
+
+static PositionalInfo * _cap_positional_info_make(
+    const char * name, const char * meta_var, const char * description,
+    DataType type) {
+    PositionalInfo * info = (PositionalInfo *) malloc(sizeof(PositionalInfo));
+    *info = (PositionalInfo) {
+        .mName = copy_string(name),
+	.mMetaVar = copy_string(meta_var),
+	.mDescription = copy_string(description),
+	.mType = type
+    };
+    return info;
+}
+
+static void _cap_positional_info_destroy(PositionalInfo * info) {
+    if (!info) {
+        return;
+    }
+    delete_string_property(&(info -> mName));
+    delete_string_property(&(info -> mMetaVar));
+    delete_string_property(&(info -> mDescription));
+    free(info);
+}
+
+static void _cap_print_positional_info(FILE * file, const PositionalInfo * info) {
+    fprintf(file, "\t%s", _cap_get_posit_metavar(info));
+    if (info -> mDescription) {
+        fprintf(file, "\t%s", info -> mDescription);
     }
     fputc('\n', file);
 }
