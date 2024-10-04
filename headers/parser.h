@@ -14,6 +14,23 @@
 #include <string.h>
 
 // ============================================================================
+// === PARSER: DEFINITION OF PRIVATE TYPES ====================================
+// ============================================================================
+typedef enum {
+    OFPE_NO_ERROR,
+    OFPE_UNKNOWN_FLAG,
+    OFPE_MISSING_FLAG_VALUE,
+    OFPE_CANNOT_PARSE_FLAG
+} OneFlagParsingError;
+
+typedef struct {
+    const FlagInfo * mFlag;
+    TypedUnion mValue;
+    int mWordsConsumed;
+    OneFlagParsingError mError;
+} OneFlagParsingResult;
+    
+// ============================================================================
 // === PARSER: DECLARATION OF PRIVATE FUNCTIONS ===============================
 // ============================================================================
 
@@ -39,9 +56,11 @@ static void _cap_positional_info_destroy(PositionalInfo * info);
 static void _cap_print_positional_info(
     FILE * file, const PositionalInfo * info);
 
-static const FlagInfo * _cap_parser_parse_one_flag(
-    const ArgumentParser * parser, int argc, 
-    const char * const * argv, int * index, 
+static OneFlagParsingResult _cap_parser_parse_one_flag(
+    const ArgumentParser * parser, int argc, const char * const * argv,
+    int index); 
+static void _cap_parser_parse_flags_and_positionals(
+    const ArgumentParser * parser, int argc, const char * const * argv,
     ParsingResult * result);
 
 // ============================================================================
@@ -808,56 +827,10 @@ ParsingResult cap_parser_parse_noexit(
         .mSecondErrorWord = NULL,
         .mError = PER_NO_ERROR
     };
-    
-    // set up flag prefix characters and flag separator
-    // prefix chars should always exist even if not explicitly configured.
-    // flag separator always exists if it is not disabled.
-    const char * const prefix_chars = parser -> mFlagPrefixChars;
 
-    int index = 1;
-    bool positional_only = false;
-    size_t positional_index = 0;
-
-    while (index < argc) {
-        const char * arg = argv[index];
-
-        if (positional_only || !strlen(arg) || !strchr(prefix_chars, arg[0])) {
-            // positional
-            if (positional_index >= parser -> mPositionalCount) {
-                result.mError = PER_TOO_MANY_POSITIONALS;
-                goto fail;
-            }
-            const PositionalInfo * posit_info 
-                = parser -> mPositionals[positional_index];
-            TypedUnion tu;
-            if (!_cap_parse_word_as_type(arg, posit_info -> mType, &tu)) {
-                result.mError = PER_CANNOT_PARSE_POSITIONAL;
-                result.mFirstErrorWord = posit_info -> mName;
-                result.mSecondErrorWord = arg;
-                goto fail;
-            }
-            cap_pa_set_positional(parsed_arguments, posit_info -> mName, tu);
-            ++positional_index;
-	    ++index;
-            continue;
-        }
-	
-        // try to parse a flag
-	const FlagInfo * parsed_flag = _cap_parser_parse_one_flag(
-            parser, argc, argv, &index, &result);	
-	if (!parsed_flag) {
-	    // error
-	    goto fail;
-        }
-        if (parsed_flag == parser -> mFlagSeparatorInfo) {
-	    // switch to positional-only mode
-	    positional_only = true;
-            continue;
-        }
-        if (parsed_flag == parser -> mHelpFlagInfo) {
-            result.mError = PER_HELP;
-	    goto fail;
-        }
+    _cap_parser_parse_flags_and_positionals(parser, argc, argv, &result);   
+    if (result.mError != PER_NO_ERROR) {
+	goto fail;
     }
 
     // check min and max count requirements for flags
@@ -880,7 +853,7 @@ ParsingResult cap_parser_parse_noexit(
     }
     // positional argument presence is checked here
     // that is easy (for now), because all positionals are required
-    if (positional_index < parser -> mPositionalCount) {
+    if (parsed_arguments -> mPositionalCount < parser -> mPositionalCount) {
         result.mError = PER_NOT_ENOUGH_POSITIONALS;
         goto fail;
     }
@@ -1154,70 +1127,122 @@ static void _cap_print_positional_info(
     fputc('\n', file);
 }
 
-static const FlagInfo * _cap_parser_parse_one_flag(
+
+static OneFlagParsingResult _cap_parser_parse_one_flag(
         const ArgumentParser * parser, int argc, const char * const * argv,
-        int * index, ParsingResult * result) {
-    const char * arg = argv[*index];
+        int index) {
+    OneFlagParsingResult result;
+    result.mWordsConsumed = 0;
+    result.mError = OFPE_NO_ERROR;
+
+    const char * arg = argv[index];
 
     // 1. is this a flag that exists?
     const FlagInfo * flag_info = _cap_parser_find_flag(parser, arg);
+    result.mFlag = flag_info;
     if (!flag_info) {  // no such flag was found
-        result -> mError = PER_UNKNOWN_FLAG;
-        result -> mFirstErrorWord = arg;
-        return NULL;
+        result.mError = OFPE_UNKNOWN_FLAG;
+       	return result;
     }
     // skip arg because it is being consumed right now
-    ++*index;
+    ++index;
+    ++result.mWordsConsumed;
    
-    // This REALLY bothers me. But I don't currently know how to do this
-    // better.
-    //
-    // I like the idea that this function does not check if the flag it found 
-    // is special or anything. The main parsing function 
-    // (cap_parser_parse_noexit) should do that. 
-    //
-    // But the specification says the flag separator should
-    // not become a flag in ParsedArguments. (Neither should the help flag).
-    // There is no function for removing data from a ParsedArguments, and it 
-    // would be a weird solution to do it that way. 
-    //
-    // A proper solution would be to return something from this function and
-    // let the main parsing function decide if the value should be added.
-    if (
-            flag_info == parser -> mFlagSeparatorInfo
-	    || flag_info == parser -> mHelpFlagInfo) {
-        return flag_info;
-    }
     // 3. check data type and try to parse it
-    DataType dtype = flag_info -> mType;
-    if (dtype == DT_PRESENCE) {
-        cap_pa_add_flag(result -> mArguments, arg, cap_tu_make_presence());
-        return flag_info;
+    if (flag_info -> mType == DT_PRESENCE) {
+	result.mValue = cap_tu_make_presence();
+	return result;
     }
     // parse the next argument according to dtype
-    if (*index >= argc) {
-        result -> mError = PER_MISSING_FLAG_VALUE;
-        result -> mFirstErrorWord = arg;
-        return NULL;
+    if (index >= argc) {
+        result.mError = OFPE_MISSING_FLAG_VALUE;
+        return result;
     }
-    const char * value_arg = argv[*index];
+    const char * value_arg = argv[index];
     // This is a bit messy but it should work.
     // Generally, it is bad practice to use uninitialized objects.
     // What's even funnier is, I made factory functions for typed unions
     // but this code isn't directly using them lol.
-    TypedUnion tu;
-    if (!_cap_parse_word_as_type(value_arg, flag_info -> mType, &tu)) {
-        result -> mError = PER_CANNOT_PARSE_FLAG;
-        result -> mFirstErrorWord = arg;
-        result -> mSecondErrorWord = value_arg;
-        return NULL;
+    if (!_cap_parse_word_as_type(
+            value_arg, flag_info -> mType, &(result.mValue))) {
+        result.mError = OFPE_CANNOT_PARSE_FLAG;
+        return result;
     }
     // very important! must skip extra the word that was consumed here
-    ++*index;
-    // 4. add this new value for the flag
-    cap_pa_add_flag(result -> mArguments, arg, tu);
-    return flag_info;
+    ++index;
+    ++result.mWordsConsumed;
+    return result;
+} 
+
+static void _cap_parser_parse_flags_and_positionals(
+        const ArgumentParser * parser, int argc, const char * const * argv,
+        ParsingResult * result) {
+    const char * const prefix_chars = parser -> mFlagPrefixChars;
+
+    int index = 1;
+    bool positional_only = false;
+    size_t positional_index = 0;
+
+    while (index < argc) {
+        const char * arg = argv[index];
+
+        if (positional_only || !strlen(arg) || !strchr(prefix_chars, arg[0])) {
+            // positional
+            if (positional_index >= parser -> mPositionalCount) {
+                result -> mError = PER_TOO_MANY_POSITIONALS;
+                return;
+            }
+            const PositionalInfo * posit_info 
+                = parser -> mPositionals[positional_index];
+            TypedUnion tu;
+            if (!_cap_parse_word_as_type(arg, posit_info -> mType, &tu)) {
+                result -> mError = PER_CANNOT_PARSE_POSITIONAL;
+                result -> mFirstErrorWord = posit_info -> mName;
+                result -> mSecondErrorWord = arg;
+                return;
+            }
+            cap_pa_set_positional(result -> mArguments, posit_info -> mName, tu);
+            ++positional_index;
+	    ++index;
+            continue;
+        }
+	
+        // try to parse a flag
+	OneFlagParsingResult one_flag_res = _cap_parser_parse_one_flag(
+            parser, argc, argv, index);
+	const FlagInfo * parsed_flag = one_flag_res.mFlag;
+	switch (one_flag_res.mError) {
+	    case OFPE_NO_ERROR:
+	       	break;
+	    case OFPE_UNKNOWN_FLAG:
+		result -> mError = PER_UNKNOWN_FLAG;
+		result -> mFirstErrorWord = arg;
+		return;
+	    case OFPE_MISSING_FLAG_VALUE:
+		result -> mError = PER_MISSING_FLAG_VALUE;
+		result -> mFirstErrorWord = one_flag_res.mFlag -> mName;
+		return;
+	    case OFPE_CANNOT_PARSE_FLAG:
+		result -> mError = PER_CANNOT_PARSE_FLAG;
+		result -> mFirstErrorWord = one_flag_res.mFlag -> mName;
+		result -> mSecondErrorWord = argv[index + one_flag_res.mWordsConsumed];
+		return;
+	    default:
+                assert(false && "unreachable in cap_parser_parse_noexit");
+	}
+	index += one_flag_res.mWordsConsumed;
+        if (parsed_flag == parser -> mFlagSeparatorInfo) {
+	    // switch to positional-only mode
+	    positional_only = true;
+            continue;
+        }
+        if (parsed_flag == parser -> mHelpFlagInfo) {
+            result -> mError = PER_HELP;
+	    return;
+        }
+	// normal flag -> add its value to parsed_arguments
+	cap_pa_add_flag(
+	    result -> mArguments, parsed_flag -> mName, one_flag_res.mValue); 
+    }
 }
-
-
 #endif
