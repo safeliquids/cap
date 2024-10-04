@@ -282,7 +282,8 @@ void cap_parser_set_program_name(ArgumentParser * parser, const char * name) {
  * @param parser parser object to configure
  * @param description null-terminated description of the program, or NULL
  */
-void cap_parser_set_description(ArgumentParser * parser, const char * description) {
+void cap_parser_set_description(
+        ArgumentParser * parser, const char * description) {
     if (!parser) {
         return;
     }
@@ -641,7 +642,8 @@ void cap_parser_add_positional(
  * @param argv0 first word on the command line
  * @return configured or estimated program name
  */
-const char * cap_parser_get_program_name(const ArgumentParser * parser, const char * argv0) {
+const char * cap_parser_get_program_name(
+        const ArgumentParser * parser, const char * argv0) {
     if (parser -> mProgramName) {
         return parser -> mProgramName;
     }
@@ -833,7 +835,8 @@ ParsingResult cap_parser_parse_noexit(
                 result.mError = PER_TOO_MANY_POSITIONALS;
                 goto fail;
             }
-            const PositionalInfo * posit_info = parser -> mPositionals[positional_index];
+            const PositionalInfo * posit_info 
+                = parser -> mPositionals[positional_index];
             TypedUnion tu;
             if (!_cap_parse_word_as_type(arg, posit_info -> mType, &tu)) {
                 result.mError = PER_CANNOT_PARSE_POSITIONAL;
@@ -894,13 +897,16 @@ ParsingResult cap_parser_parse_noexit(
     // check min and max count requirements for flags
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         const FlagInfo * flag_info = parser -> mFlags[i];
-        size_t real_count = cap_pa_flag_count(parsed_arguments, flag_info -> mName);
+        size_t real_count = cap_pa_flag_count(
+            parsed_arguments, flag_info -> mName);
         if (real_count < (unsigned int) flag_info -> mMinCount) {
             result.mError = PER_NOT_ENOUGH_FLAGS;
             result.mFirstErrorWord = flag_info -> mName;
             goto fail;
         }
-        if (flag_info -> mMaxCount >= 0 && real_count > (unsigned int) flag_info -> mMaxCount) {
+        if (
+                flag_info -> mMaxCount >= 0
+	       	&& real_count > (unsigned int) flag_info -> mMaxCount) {
             result.mError = PER_TOO_MANY_FLAGS;
             result.mFirstErrorWord = flag_info -> mName;
             goto fail;
@@ -924,9 +930,14 @@ fail:
 /**
  * Parses command line arguments.
  * 
- * Parses command line words using a given parser. If a parsing error occurs, the program exits with an error message.
+ * Parses command line words using a given parser. If a parsing error occurs, 
+ * the program exits with an error message.
  * 
- * On successful parsing returns a pointer to a `ParsedArguments` object containing all parsed flags and positional arguments. The caller is the owner of this object - it can be used even after the parser is destroyed using `cap_parser_destroy` and needs to be destroyed using `cap_pa_destroy` and a subsequent call to `free`.
+ * On successful parsing returns a pointer to a `ParsedArguments` object 
+ * containing all parsed flags and positional arguments. The caller is the owner
+ * of this object - it can be used even after the parser is destroyed using 
+ * `cap_parser_destroy` and needs to be destroyed using `cap_pa_destroy` and a 
+ * subsequent call to `free`.
  * 
  * @param parser parser object to use
  * @param argc number of command line words
@@ -955,22 +966,31 @@ ParsedArguments * cap_parser_parse(
             fprintf(stderr, "too many arguments");
             break;
         case PER_CANNOT_PARSE_POSITIONAL:
-            fprintf(stderr, "cannot parse value '%s' for argument '%s'", result.mSecondErrorWord, result.mFirstErrorWord);
+            fprintf(
+                stderr, "cannot parse value '%s' for argument '%s'",
+	       	result.mSecondErrorWord, result.mFirstErrorWord);
             break;
         case PER_UNKNOWN_FLAG:
             fprintf(stderr, "unknown flag '%s'", result.mFirstErrorWord);
             break;
         case PER_MISSING_FLAG_VALUE:
-            fprintf(stderr, "missing value for flag '%s'", result.mFirstErrorWord);
+            fprintf(
+                stderr, "missing value for flag '%s'", result.mFirstErrorWord);
             break;
         case PER_CANNOT_PARSE_FLAG:
-            fprintf(stderr, "cannot parse value '%s' for flag '%s'", result.mSecondErrorWord, result.mFirstErrorWord);
+            fprintf(
+                stderr, "cannot parse value '%s' for flag '%s'",
+	       	result.mSecondErrorWord, result.mFirstErrorWord);
             break;
         case PER_NOT_ENOUGH_FLAGS:
-            fprintf(stderr, "not enough instances of flag '%s'", result.mFirstErrorWord);
+            fprintf(
+                stderr, "not enough instances of flag '%s'", 
+		result.mFirstErrorWord);
             break;
         case PER_TOO_MANY_FLAGS:
-            fprintf(stderr, "too many instances of flag '%s'", result.mFirstErrorWord);
+            fprintf(
+                stderr, "too many instances of flag '%s'", 
+		result.mFirstErrorWord);
             break;
         case PER_HELP:
         case PER_NO_ERROR:
@@ -1080,10 +1100,14 @@ static const char * _cap_type_metavar(DataType type) {
 
 static FlagInfo * _cap_parser_find_flag(
         const ArgumentParser * parser, const char * flag) {
-    if (parser -> mHelpFlagInfo && !strcmp(flag, parser -> mHelpFlagInfo -> mName)) {
+    if (
+            parser -> mHelpFlagInfo 
+	    && !strcmp(flag, parser -> mHelpFlagInfo -> mName)) {
         return parser -> mHelpFlagInfo;
     }
-    if (parser -> mFlagSeparatorInfo && !strcmp(flag, parser -> mFlagSeparatorInfo -> mName)) {
+    if (
+            parser -> mFlagSeparatorInfo 
+	    && !strcmp(flag, parser -> mFlagSeparatorInfo -> mName)) {
         return parser -> mFlagSeparatorInfo;
     }
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
