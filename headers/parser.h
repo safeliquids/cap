@@ -17,26 +17,27 @@
 // === PARSER: DECLARATION OF PRIVATE FUNCTIONS ===============================
 // ============================================================================
 
-bool _cap_parse_double(const char * word, double * value);
-bool _cap_parse_int(const char * word, int * value);
-bool _cap_parse_word_as_type(
+static bool _cap_parse_double(const char * word, double * value);
+static bool _cap_parse_int(const char * word, int * value);
+static bool _cap_parse_word_as_type(
     const char * word, DataType type, TypedUnion * uninitialized_tu);
-const char * _cap_get_flag_metavar(const FlagInfo * fi);
-const char * _cap_get_posit_metavar(const PositionalInfo * pi);
-const char * _cap_type_metavar(DataType type);
-FlagInfo * _cap_parser_find_flag(
+static const char * _cap_get_flag_metavar(const FlagInfo * fi);
+static const char * _cap_get_posit_metavar(const PositionalInfo * pi);
+static const char * _cap_type_metavar(DataType type);
+static FlagInfo * _cap_parser_find_flag(
     const ArgumentParser * parser, const char * flag);
 static FlagInfo * _cap_flag_info_make(
     const char * name, const char * metaVar, const char * description,
     DataType type, int min_count, int max_count);
-void _cap_flag_info_destroy(FlagInfo * info);
-void _cap_print_flag_info(FILE * file, const FlagInfo * flag);
+static void _cap_flag_info_destroy(FlagInfo * info);
+static void _cap_print_flag_info(FILE * file, const FlagInfo * flag);
 
 static PositionalInfo * _cap_positional_info_make(
     const char * name, const char * meta_var, const char * description,
     DataType type);
 static void _cap_positional_info_destroy(PositionalInfo * info);
-static void _cap_print_positional_info(FILE * file, const PositionalInfo * info);
+static void _cap_print_positional_info(
+    FILE * file, const PositionalInfo * info);
 
 // ============================================================================
 // === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
@@ -986,7 +987,7 @@ ParsedArguments * cap_parser_parse(
 // === PARSER: IMPLEMENTATION OF PRIVATE FUNCTIONS ============================
 // ============================================================================
 
-bool _cap_parse_double(const char * word, double * value) {
+static bool _cap_parse_double(const char * word, double * value) {
     double v;
     int c;
     long long int n;
@@ -998,7 +999,7 @@ bool _cap_parse_double(const char * word, double * value) {
     return true;
 }
 
-bool _cap_parse_int(const char * word, int * value) {
+static bool _cap_parse_int(const char * word, int * value) {
     int v, c;
     long long int n;
     c = sscanf(word, "%i%lln", &v, &n);
@@ -1009,7 +1010,7 @@ bool _cap_parse_int(const char * word, int * value) {
     return true;
 }
 
-bool _cap_parse_word_as_type(
+static bool _cap_parse_word_as_type(
         const char * word, DataType type, TypedUnion * uninitialized_tu) {
     switch (type) {
         case DT_DOUBLE: {
@@ -1038,7 +1039,7 @@ bool _cap_parse_word_as_type(
     return false;
 }
 
-const char * _cap_get_flag_metavar(const FlagInfo * fi) {
+static const char * _cap_get_flag_metavar(const FlagInfo * fi) {
     if (!fi || fi -> mType == DT_PRESENCE) {
         return NULL;
     }
@@ -1048,7 +1049,7 @@ const char * _cap_get_flag_metavar(const FlagInfo * fi) {
     return _cap_type_metavar(fi -> mType);
 }
 
-const char * _cap_get_posit_metavar(const PositionalInfo * pi) {
+static const char * _cap_get_posit_metavar(const PositionalInfo * pi) {
     if (!pi) {
         return NULL;
     }
@@ -1058,7 +1059,7 @@ const char * _cap_get_posit_metavar(const PositionalInfo * pi) {
     return pi -> mName;
 }
 
-const char * _cap_type_metavar(DataType type) {
+static const char * _cap_type_metavar(DataType type) {
     const char * type_metavar;
     switch (type) {
         case DT_DOUBLE:
@@ -1077,7 +1078,7 @@ const char * _cap_type_metavar(DataType type) {
     return type_metavar;
 }
 
-FlagInfo * _cap_parser_find_flag(
+static FlagInfo * _cap_parser_find_flag(
         const ArgumentParser * parser, const char * flag) {
     if (parser -> mHelpFlagInfo && !strcmp(flag, parser -> mHelpFlagInfo -> mName)) {
         return parser -> mHelpFlagInfo;
@@ -1110,7 +1111,7 @@ static FlagInfo * _cap_flag_info_make(
 }
 
 
-void _cap_flag_info_destroy(FlagInfo * info) {
+static void _cap_flag_info_destroy(FlagInfo * info) {
     if (!info) {
         return;
     }
@@ -1120,7 +1121,7 @@ void _cap_flag_info_destroy(FlagInfo * info) {
     free(info);
 }
 
-void _cap_print_flag_info(FILE * file, const FlagInfo * flag) {
+static void _cap_print_flag_info(FILE * file, const FlagInfo * flag) {
     fprintf(file, "\t%s", flag -> mName);
     if (flag -> mType != DT_PRESENCE) {
         fprintf(file, " %s", _cap_get_flag_metavar(flag));
@@ -1154,7 +1155,8 @@ static void _cap_positional_info_destroy(PositionalInfo * info) {
     free(info);
 }
 
-static void _cap_print_positional_info(FILE * file, const PositionalInfo * info) {
+static void _cap_print_positional_info(
+        FILE * file, const PositionalInfo * info) {
     fprintf(file, "\t%s", _cap_get_posit_metavar(info));
     if (info -> mDescription) {
         fprintf(file, "\t%s", info -> mDescription);
