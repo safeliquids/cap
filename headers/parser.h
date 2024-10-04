@@ -39,6 +39,11 @@ static void _cap_positional_info_destroy(PositionalInfo * info);
 static void _cap_print_positional_info(
     FILE * file, const PositionalInfo * info);
 
+static const FlagInfo * _cap_parser_parse_one_flag(
+    const ArgumentParser * parser, int argc, 
+    const char * const * argv, int * index, 
+    ParsingResult * result);
+
 // ============================================================================
 // === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
 // ============================================================================
@@ -798,7 +803,7 @@ ParsingResult cap_parser_parse_noexit(
         ArgumentParser * parser, int argc, const char ** argv) {
     ParsedArguments * parsed_arguments = cap_pa_make_empty();
     ParsingResult result = (ParsingResult) {
-        .mArguments = NULL,
+        .mArguments = parsed_arguments,
         .mFirstErrorWord = NULL,
         .mSecondErrorWord = NULL,
         .mError = PER_NO_ERROR
@@ -808,28 +813,15 @@ ParsingResult cap_parser_parse_noexit(
     // prefix chars should always exist even if not explicitly configured.
     // flag separator always exists if it is not disabled.
     const char * const prefix_chars = parser -> mFlagPrefixChars;
-    const FlagInfo * const flag_separator_info = parser -> mFlagSeparatorInfo;
-    const FlagInfo * const help_flag_info = parser -> mHelpFlagInfo;
 
-    int index = 0;
+    int index = 1;
     bool positional_only = false;
     size_t positional_index = 0;
-    while (true) {
-        ++index;
-        if (index >= argc) {
-            break;
-        }
-        const char * arg = argv[index];
-        
-        // switch to positional-only mode if flag separator is found
-        if (!positional_only && flag_separator_info
-                && strcmp(arg, flag_separator_info -> mName) == 0) {
-            positional_only = true;
-            continue;
-        }
 
-        // TODO: what to do if an arg is empty string?!
-        if (positional_only || !strchr(prefix_chars, arg[0])) {
+    while (index < argc) {
+        const char * arg = argv[index];
+
+        if (positional_only || !strlen(arg) || !strchr(prefix_chars, arg[0])) {
             // positional
             if (positional_index >= parser -> mPositionalCount) {
                 result.mError = PER_TOO_MANY_POSITIONALS;
@@ -846,52 +838,26 @@ ParsingResult cap_parser_parse_noexit(
             }
             cap_pa_set_positional(parsed_arguments, posit_info -> mName, tu);
             ++positional_index;
+	    ++index;
             continue;
         }
-        // parsing a flag
-
-        // 1. is this a flag that exists?
-        const FlagInfo * flag_info = _cap_parser_find_flag(parser, arg);
-        if (!flag_info) {  // no such flag was found
-            result.mError = PER_UNKNOWN_FLAG;
-            result.mFirstErrorWord = arg;
-            goto fail;
+	
+        // try to parse a flag
+	const FlagInfo * parsed_flag = _cap_parser_parse_one_flag(
+            parser, argc, argv, &index, &result);	
+	if (!parsed_flag) {
+	    // error
+	    goto fail;
         }
-
-        // 2. is this the help flag?
-        if (flag_info == help_flag_info) {
+        if (parsed_flag == parser -> mFlagSeparatorInfo) {
+	    // switch to positional-only mode
+	    positional_only = true;
+            continue;
+        }
+        if (parsed_flag == parser -> mHelpFlagInfo) {
             result.mError = PER_HELP;
-            goto fail;
+	    goto fail;
         }
-
-        // 3. check data type and try to parse it
-        DataType dtype = flag_info -> mType;
-        if (dtype == DT_PRESENCE) {
-            cap_pa_add_flag(parsed_arguments, arg, cap_tu_make_presence());
-            continue;
-        }
-        // parse the next argument according to dtype
-        if (index + 1 >= argc) {
-            result.mError = PER_MISSING_FLAG_VALUE;
-            result.mFirstErrorWord = arg;
-            goto fail;
-        }
-        const char * value_arg = argv[index + 1];
-        // This is a bit messy but it should work.
-        // Generally, it is bad practice to use uninitialized objects.
-        // What's even funnier is, I made factory functions for typed unions
-        // but this code isn't directly using them lol.
-        TypedUnion tu;
-        if (!_cap_parse_word_as_type(value_arg, flag_info -> mType, &tu)) {
-            result.mError = PER_CANNOT_PARSE_FLAG;
-            result.mFirstErrorWord = arg;
-            result.mSecondErrorWord = value_arg;
-            goto fail;
-        }
-        // very important! must skip the word that was consumed here
-        index++;
-        // 4. add this new value for the flag
-        cap_pa_add_flag(parsed_arguments, arg, tu);
     }
 
     // check min and max count requirements for flags
@@ -919,11 +885,11 @@ ParsingResult cap_parser_parse_noexit(
         goto fail;
     }
 
-    result.mArguments = parsed_arguments;
     return result;
 
 fail:
     cap_pa_destroy(parsed_arguments);
+    result.mArguments = NULL;
     return result;
 }
 
@@ -1187,5 +1153,71 @@ static void _cap_print_positional_info(
     }
     fputc('\n', file);
 }
+
+static const FlagInfo * _cap_parser_parse_one_flag(
+        const ArgumentParser * parser, int argc, const char * const * argv,
+        int * index, ParsingResult * result) {
+    const char * arg = argv[*index];
+
+    // 1. is this a flag that exists?
+    const FlagInfo * flag_info = _cap_parser_find_flag(parser, arg);
+    if (!flag_info) {  // no such flag was found
+        result -> mError = PER_UNKNOWN_FLAG;
+        result -> mFirstErrorWord = arg;
+        return NULL;
+    }
+    // skip arg because it is being consumed right now
+    ++*index;
+   
+    // This REALLY bothers me. But I don't currently know how to do this
+    // better.
+    //
+    // I like the idea that this function does not check if the flag it found 
+    // is special or anything. The main parsing function 
+    // (cap_parser_parse_noexit) should do that. 
+    //
+    // But the specification says the flag separator should
+    // not become a flag in ParsedArguments. (Neither should the help flag).
+    // There is no function for removing data from a ParsedArguments, and it 
+    // would be a weird solution to do it that way. 
+    //
+    // A proper solution would be to return something from this function and
+    // let the main parsing function decide if the value should be added.
+    if (
+            flag_info == parser -> mFlagSeparatorInfo
+	    || flag_info == parser -> mHelpFlagInfo) {
+        return flag_info;
+    }
+    // 3. check data type and try to parse it
+    DataType dtype = flag_info -> mType;
+    if (dtype == DT_PRESENCE) {
+        cap_pa_add_flag(result -> mArguments, arg, cap_tu_make_presence());
+        return flag_info;
+    }
+    // parse the next argument according to dtype
+    if (*index >= argc) {
+        result -> mError = PER_MISSING_FLAG_VALUE;
+        result -> mFirstErrorWord = arg;
+        return NULL;
+    }
+    const char * value_arg = argv[*index];
+    // This is a bit messy but it should work.
+    // Generally, it is bad practice to use uninitialized objects.
+    // What's even funnier is, I made factory functions for typed unions
+    // but this code isn't directly using them lol.
+    TypedUnion tu;
+    if (!_cap_parse_word_as_type(value_arg, flag_info -> mType, &tu)) {
+        result -> mError = PER_CANNOT_PARSE_FLAG;
+        result -> mFirstErrorWord = arg;
+        result -> mSecondErrorWord = value_arg;
+        return NULL;
+    }
+    // very important! must skip extra the word that was consumed here
+    ++*index;
+    // 4. add this new value for the flag
+    cap_pa_add_flag(result -> mArguments, arg, tu);
+    return flag_info;
+}
+
 
 #endif
