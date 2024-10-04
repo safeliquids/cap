@@ -32,6 +32,19 @@ typedef struct {
 } OneFlagParsingResult;
 
 typedef enum {
+    OPPE_NO_ERROR,
+    OPPE_TOO_MANY,
+    OPPE_CANNOT_PARSE
+} OnePositionalParsingError;
+
+typedef struct {
+    const PositionalInfo * mPositional;
+    TypedUnion mValue;
+    int mWordsConsumed;
+    OnePositionalParsingError mError;
+} OnePositionalParsingResult;
+
+typedef enum {
     TOO_MANY,
     TOO_FEW,
     GOOD
@@ -68,6 +81,9 @@ static void _cap_positional_info_destroy(PositionalInfo * info);
 static void _cap_print_positional_info(
     FILE * file, const PositionalInfo * info);
 
+static OnePositionalParsingResult _cap_parser_parse_one_positional(
+    const ArgumentParser * parser, const char * arg, 
+    size_t positional_index);
 static OneFlagParsingResult _cap_parser_parse_one_flag(
     const ArgumentParser * parser, int argc, const char * const * argv,
     int index); 
@@ -1124,6 +1140,29 @@ static void _cap_print_positional_info(
     fputc('\n', file);
 }
 
+static OnePositionalParsingResult _cap_parser_parse_one_positional(
+        const ArgumentParser * parser, const char * arg, 
+        size_t positional_index) {
+    OnePositionalParsingResult res;
+    res.mPositional = NULL;
+    res.mWordsConsumed = 0;
+    res.mError = OPPE_NO_ERROR;
+     
+    if (positional_index >= parser -> mPositionalCount) {
+	res.mError = OPPE_TOO_MANY;
+	return res;
+    }
+    const PositionalInfo * posit_info 
+	= parser -> mPositionals[positional_index];
+    res.mPositional = posit_info;
+    if (!_cap_parse_word_as_type(arg, posit_info -> mType, &(res.mValue))) {
+        res.mError = OPPE_CANNOT_PARSE;
+        return res;
+    }
+
+    res.mWordsConsumed = 1;
+    return res;
+}
 
 static OneFlagParsingResult _cap_parser_parse_one_flag(
         const ArgumentParser * parser, int argc, const char * const * argv,
@@ -1174,33 +1213,40 @@ static OneFlagParsingResult _cap_parser_parse_one_flag(
 static void _cap_parser_parse_flags_and_positionals(
         const ArgumentParser * parser, int argc, const char * const * argv,
         ParsingResult * result) {
-    const char * const prefix_chars = parser -> mFlagPrefixChars;
-
+    size_t positional_index = 0;
     int index = 1;
     bool positional_only = false;
-    size_t positional_index = 0;
 
     while (index < argc) {
         const char * arg = argv[index];
 
-        if (positional_only || !strlen(arg) || !strchr(prefix_chars, arg[0])) {
+        if (positional_only || !strlen(arg) 
+		|| !strchr(parser -> mFlagPrefixChars, arg[0])) {
             // positional
-            if (positional_index >= parser -> mPositionalCount) {
-                result -> mError = PER_TOO_MANY_POSITIONALS;
-                return;
-            }
-            const PositionalInfo * posit_info 
-                = parser -> mPositionals[positional_index];
-            TypedUnion tu;
-            if (!_cap_parse_word_as_type(arg, posit_info -> mType, &tu)) {
-                result -> mError = PER_CANNOT_PARSE_POSITIONAL;
-                result -> mFirstErrorWord = posit_info -> mName;
-                result -> mSecondErrorWord = arg;
-                return;
-            }
-            cap_pa_set_positional(result -> mArguments, posit_info -> mName, tu);
+	    OnePositionalParsingResult one_posit_res = 
+		_cap_parser_parse_one_positional(parser, arg, positional_index);
+	    const PositionalInfo * posit_info = one_posit_res.mPositional;
+	    switch (one_posit_res.mError) {
+		case OPPE_NO_ERROR:
+		    break;
+		case OPPE_TOO_MANY:
+		    result -> mError = PER_TOO_MANY_POSITIONALS;
+		    return;
+		case OPPE_CANNOT_PARSE:
+		    result -> mError = PER_CANNOT_PARSE_POSITIONAL;
+		    result -> mFirstErrorWord = posit_info -> mName;
+		    result -> mSecondErrorWord = arg;
+		    return;
+		default:
+		    assert(
+		        false && "unreachable in "
+			"_cap_parser_parse_flags_and_positionals");
+	    }
+            cap_pa_set_positional(
+                result -> mArguments, posit_info -> mName, 
+		one_posit_res.mValue);
             ++positional_index;
-	    ++index;
+	    index += one_posit_res.mWordsConsumed;
             continue;
         }
 	
@@ -1222,7 +1268,8 @@ static void _cap_parser_parse_flags_and_positionals(
 	    case OFPE_CANNOT_PARSE_FLAG:
 		result -> mError = PER_CANNOT_PARSE_FLAG;
 		result -> mFirstErrorWord = one_flag_res.mFlag -> mName;
-		result -> mSecondErrorWord = argv[index + one_flag_res.mWordsConsumed];
+		result -> mSecondErrorWord 
+		    = argv[index + one_flag_res.mWordsConsumed];
 		return;
 	    default:
                 assert(false && "unreachable in cap_parser_parse_noexit");
