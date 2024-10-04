@@ -16,6 +16,7 @@
 // ============================================================================
 // === PARSER: DEFINITION OF PRIVATE TYPES ====================================
 // ============================================================================
+
 typedef enum {
     OFPE_NO_ERROR,
     OFPE_UNKNOWN_FLAG,
@@ -29,7 +30,18 @@ typedef struct {
     int mWordsConsumed;
     OneFlagParsingError mError;
 } OneFlagParsingResult;
-    
+
+typedef enum {
+    TOO_MANY,
+    TOO_FEW,
+    GOOD
+} BoundsCheckingResult;
+
+typedef struct {
+    const FlagInfo * mFlag;
+    BoundsCheckingResult mCount;
+} FlagCountCheckResult;
+
 // ============================================================================
 // === PARSER: DECLARATION OF PRIVATE FUNCTIONS ===============================
 // ============================================================================
@@ -62,6 +74,11 @@ static OneFlagParsingResult _cap_parser_parse_one_flag(
 static void _cap_parser_parse_flags_and_positionals(
     const ArgumentParser * parser, int argc, const char * const * argv,
     ParsingResult * result);
+
+static FlagCountCheckResult _cap_parser_check_flag_counts(
+    const ArgumentParser * parser, const ParsedArguments * parsed_arguments);
+static void _cap_parser_check_flag_and_positional_counts(
+    const ArgumentParser * parser, ParsingResult * result);
 
 // ============================================================================
 // === PARSER: DECLARATION OF PUBLIC FUNCTIONS ================================
@@ -832,30 +849,10 @@ ParsingResult cap_parser_parse_noexit(
     if (result.mError != PER_NO_ERROR) {
 	goto fail;
     }
-
-    // check min and max count requirements for flags
-    for (size_t i = 0; i < parser -> mFlagCount; ++i) {
-        const FlagInfo * flag_info = parser -> mFlags[i];
-        size_t real_count = cap_pa_flag_count(
-            parsed_arguments, flag_info -> mName);
-        if (real_count < (unsigned int) flag_info -> mMinCount) {
-            result.mError = PER_NOT_ENOUGH_FLAGS;
-            result.mFirstErrorWord = flag_info -> mName;
-            goto fail;
-        }
-        if (
-                flag_info -> mMaxCount >= 0
-	       	&& real_count > (unsigned int) flag_info -> mMaxCount) {
-            result.mError = PER_TOO_MANY_FLAGS;
-            result.mFirstErrorWord = flag_info -> mName;
-            goto fail;
-        }
-    }
-    // positional argument presence is checked here
-    // that is easy (for now), because all positionals are required
-    if (parsed_arguments -> mPositionalCount < parser -> mPositionalCount) {
-        result.mError = PER_NOT_ENOUGH_POSITIONALS;
-        goto fail;
+    
+    _cap_parser_check_flag_and_positional_counts(parser, &result);
+    if (result.mError != PER_NO_ERROR) {
+	goto fail;
     }
 
     return result;
@@ -1245,4 +1242,62 @@ static void _cap_parser_parse_flags_and_positionals(
 	    result -> mArguments, parsed_flag -> mName, one_flag_res.mValue); 
     }
 }
+
+static FlagCountCheckResult _cap_parser_check_flag_counts(
+        const ArgumentParser * parser,
+       	const ParsedArguments * parsed_arguments) {
+    
+    // check min and max count requirements for flags
+    for (size_t i = 0; i < parser -> mFlagCount; ++i) {
+        const FlagInfo * flag_info = parser -> mFlags[i];
+        size_t real_count = cap_pa_flag_count(
+            parsed_arguments, flag_info -> mName);
+        if (real_count < (unsigned int) flag_info -> mMinCount) {
+	    return (FlagCountCheckResult) {
+		.mFlag = flag_info,
+		.mCount = TOO_FEW
+	    };
+        }
+        if (flag_info -> mMaxCount >= 0
+	       	&& real_count > (unsigned int) flag_info -> mMaxCount) {
+            return (FlagCountCheckResult) {
+	       .mFlag = flag_info,
+               .mCount = TOO_MANY
+            };		   
+        }
+    }
+    return (FlagCountCheckResult) {
+	.mFlag = NULL,
+	.mCount = GOOD
+    };
+}
+
+static void _cap_parser_check_flag_and_positional_counts(
+        const ArgumentParser * parser, ParsingResult * result) {
+    // positional argument presence is checked here
+    // that is easy (for now), because all positionals are required
+    if (result -> mArguments -> mPositionalCount < parser -> mPositionalCount) {
+        result -> mError = PER_NOT_ENOUGH_POSITIONALS;
+        return;
+    }
+    // required flag counts are checked using another function because we also
+    // want to know the name of the flag
+    FlagCountCheckResult count_check = _cap_parser_check_flag_counts(
+        parser, result -> mArguments);
+    switch (count_check.mCount) {
+	case GOOD:
+	    break;
+	case TOO_FEW:
+            result -> mError = PER_NOT_ENOUGH_FLAGS;
+	    result -> mFirstErrorWord = count_check.mFlag -> mName;
+	    return; 
+	case TOO_MANY:
+	    result -> mError = PER_TOO_MANY_FLAGS;
+	    result -> mFirstErrorWord = count_check.mFlag -> mName;
+	    return;
+	default:
+	    assert(false && "unreachable in cap_parser_parse_noexit");
+    }
+}
+
 #endif
