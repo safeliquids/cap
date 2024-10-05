@@ -1,33 +1,38 @@
-# cap
+# cap 
 
 `cap.h` is a C library for parsing arguments given to programs on the command
 line. Its structure and API takes great inspiration from `argparse` [1], a part
-of the standard library of python.
+of the standard library of python 3.
 
 ## Quick Start
 
 ### Compiling
 
-You can use the provided `Makefile` to create a header file called `cap.h`. 
+The provided `Makefile` can be used to create a header file called `cap.h`. 
 ``` console
 $ make all
 gcc -Wall -Wextra -Wformat-security -pedantic -std=c99 -g -I. -o slicer.exe slicer.c
 ./slicer.exe -o cap.h headers/types.h [... sevaral other file names here...]
 ```
-As you can see above, this involves building a tool called `slicer.exe`, whose
-source code can be found in the file `slicer.c` in this repository. The default 
+As shown above, this involves building a tool called `slicer.exe`, the source 
+code of which can be found in the file `slicer.c` in this repository. The default 
 toolchain to do this is `gcc`, you can edit the `Makefile` to use your preferred
 C compiler.
 
 ### Importing `cap.h` and Creating a Parser
 
-To use the library, include `cap.h` in your main program file.
+To use the library, we first include the generated `cap.h` in the program's 
+main source file. *(Note: `cap.h` must not be included in multiple compilation
+units. This is a technical limitation caused by it being a single header. In 
+future the library will be changed to consist of one header and one source file
+which the user can compile to a single object file. This will allow the library 
+to be used in multiple compilation units.)*
 ``` c
 /* main.c */
 #include "cap.h"
 ...
 ```
-Then, in the main function, create a parser object.
+Then in the main function, we can create a parser object.
 ``` c
 ...
 int main (int argc, const char ** argv) {
@@ -38,7 +43,7 @@ int main (int argc, const char ** argv) {
 
 ### Defining Flags
 
-You can define flags for your program like so 
+We can define flags for our program like so 
 ``` c
     /* inside main() */
     ...
@@ -50,16 +55,16 @@ a real number on the command line. That number becomes the value of this flag
 and is stored as a `double`, hence the `DT_DOUBLE`. The two numbers following
 `DT_DOUBLE` specify the minimum and maximum number of times this flag is
 allowed to be on the command line - in this case the flag may be present up to
-once. Don't worry about the last two parameters for now.
+once. We don't need to pay attention to the last two parameters for now.
 
-Flags can not only take `double` values. You can use `DT_INT` instead of 
+Flags can not only take `double` values. We can use `DT_INT` instead of 
 `DT_DOUBLE` for integers, or `DT_STRING` for literal strings. If the flag should
-take no value, use a special key `DT_PRESENCE`.
+take no value, we use a special key `DT_PRESENCE`.
 
 The maximum allowed number of times a specific flag may be present on the 
 command line (the second number in the example above) must naturally be at
 least the minimum number (the first number.) To allow a flag up to any number 
-of times, use `-1` instead of a positive number, like so.
+of times, we can use `-1` instead of a positive number, like so.
 ``` c
     /* inside main() */
     ...
@@ -69,8 +74,8 @@ of times, use `-1` instead of a positive number, like so.
 
 ### Defining Positional Arguments
 
-In addition to flags, you can also configure positional arguments (or 
-positionals, for short) for your program. See this example
+In addition to flags, positional arguments (or positionals, for short) can 
+also be configured for our program. See this example
 ``` c
     /* inside main() */
     ...
@@ -96,14 +101,11 @@ are ready to finally process the words given on the command line
     ParsedArguments * parsed_args = cap_parser_parse(parser, argc, argv);
     ...
 ```
-
-### The `ParsedArgument` Object
-
 The `ParsedArgument` contains information about flags and positional that
 were found on the command line. We can use library functions to get some 
 information from it.
- 
-#### Flags
+
+### Accessing Parsed Flags
 
 For example, to check if a flag has been found
 on the command line, we can use something like this
@@ -141,7 +143,7 @@ value and information about that value's type. We have previously defined the
 "--big" flag to take a real number for a value. Although the parser should 
 never store an incorrect type, we can check if the value 
 stored in `parsed_args` is indeed a `DT_DOUBLE`
-```
+``` c
     /* inside main() */
     ...
     if (!cap_tu_is_double(big_value)) {
@@ -150,14 +152,14 @@ stored in `parsed_args` is indeed a `DT_DOUBLE`
     }
 ```
 To extract the actual number from `big_value`, we can do this
-```
+``` c
     /* inside main() */
     ...
     double big_number = cap_tu_as_double(big_value);
     ...
 ```
 
-#### Positionals
+### Accessing Parsed Positionals
 
 In a similar fashion, we can query if `parsed_args` contains a positional
 argument.
