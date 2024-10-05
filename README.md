@@ -61,10 +61,10 @@ Flags can not only take `double` values. We can use `DT_INT` instead of
 `DT_DOUBLE` for integers, or `DT_STRING` for literal strings. If the flag should
 take no value, we use a special key `DT_PRESENCE`.
 
-The maximum allowed number of times a specific flag may be present on the 
+The maximum number of times a specific flag may be present on the 
 command line (the second number in the example above) must naturally be at
-least the minimum number (the first number.) To allow a flag up to any number 
-of times, we can use `-1` instead of a positive number, like so.
+least the minimum (the first number). To allow a flag up to any number 
+of times, we can use `-1` instead of a positive integer, like so.
 ``` c
     /* inside main() */
     ...
@@ -74,8 +74,8 @@ of times, we can use `-1` instead of a positive number, like so.
 
 ### Defining Positional Arguments
 
-In addition to flags, positional arguments (or positionals, for short) can 
-also be configured for our program. See this example
+In addition to flags, positional arguments (or 'positionals') can 
+also be configured for our program. See this example.
 ``` c
     /* inside main() */
     ...
@@ -101,7 +101,7 @@ are ready to finally process the words given on the command line
     ParsedArguments * parsed_args = cap_parser_parse(parser, argc, argv);
     ...
 ```
-The `ParsedArgument` contains information about flags and positional that
+The `ParsedArguments` contains information about flags and positional that
 were found on the command line. We can use library functions to get some 
 information from it.
 
@@ -214,4 +214,4 @@ may not be used after the `ParsedArguments` is  deleted.
 
 ## References
 
-[1] Python Software Foundation. *`argparse` - Parser for command-line options, arguments and sub-commands.* Version 3.12.7. Online. (cit. 5. 10. 2024) (https://docs.python.org/3.12/library/argparse.html)[https://docs.python.org/3.12/library/argparse.html]
+[1] Python Software Foundation. *`argparse` - Parser for command-line options, arguments and sub-commands.* Version 3.12.7. Online. (cit. 5. 10. 2024) [https://docs.python.org/3.12/library/argparse.html](https://docs.python.org/3.12/library/argparse.html)
