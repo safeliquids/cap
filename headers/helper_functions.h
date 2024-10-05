@@ -68,4 +68,33 @@ void delete_string_property(char ** property) {
     set_string_property(property, NULL);
 }
 
+/**
+ * Get an string representation of type.
+ *
+ * Returns a null-terminated string representing the given data type. If 
+ * DT_PRESENCE is given, returns NULL instead. This should be used in help and
+ * usage messages.
+ *
+ * @param type data type to display
+ * @return string representation of the type, or NULL if type is  DT_PRESENCE 
+ */
+static const char * cap_type_metavar(DataType type) {
+    const char * type_metavar;
+    switch (type) {
+        case DT_DOUBLE:
+            type_metavar = "DOUBLE";
+            break;
+        case DT_INT:
+            type_metavar = "INT";
+            break;
+        case DT_STRING:
+            type_metavar = "STRING";
+            break;
+        case DT_PRESENCE:
+        default:
+            type_metavar = NULL;
+    }
+    return type_metavar;
+}
+
 #endif
