@@ -218,3 +218,64 @@ bool scan_headers_for_includes(
     return true;
 }
 
+bool create_reverse_topological_ordering_of_headers(
+    size_t header_count, Header * headers, Header ** ordered, 
+    size_t * header_degree)
+{
+    for (size_t i = 0; i < header_count; ++i) {
+        // very interesting, this way I am actually creating a reversed 
+        // topological order, where headers that are not referenced anywhere 
+        // else are at the top. This is fine, since we can just reverse this 
+        // order once it is done.
+        const Header * h = headers + i;
+        for (size_t j = 0; j < h -> inc_count; ++j) {
+            header_degree[h -> includes[j]] += 1;
+        }
+    }
+    for (size_t ordered_count = 0; ordered_count < header_count; ++ordered_count) {
+        size_t i = 0;
+        for ( ; i < header_count; ++i) {
+            if (header_degree[i] == 0u) {
+                break;
+            }
+        }
+        if (i == header_count) {
+            // there is no header with degree 0, which means they cannot be 
+            // topologically ordered
+            return false;
+        }
+        // need to put a non-zero value here to avoid picking this same header 
+        // in the next iteration
+        header_degree[i] = -1;
+        Header * h = headers + i;
+        for (size_t j = 0; j < h -> inc_count; ++j) {
+            header_degree[h -> includes[j]] -= 1;
+        }
+        ordered[ordered_count] = h;
+    }
+    return true;
+}
+
+bool topsort_headers(size_t header_count, Header * headers) {
+    Header ** ordering = (Header **) malloc(header_count * sizeof(Header*));
+    // number of times each header is referenced by another header
+    // initialized to zero
+    size_t * header_degree = (size_t *) calloc(header_count, sizeof(size_t));
+    bool success = create_reverse_topological_ordering_of_headers(
+        header_count, headers, ordering, header_degree);
+
+    if (success) {
+        Header * ordered = (Header *) malloc(header_count * sizeof(Header));
+        for (size_t i = 0; i < header_count; ++i) {
+            // need to reverse the ordering to get correct result
+            ordered[i] = *ordering[header_count - i - 1];
+        }
+        memcpy(headers, ordered, header_count * sizeof(Header));
+        free(ordered);
+    }
+
+    free(ordering);
+    free(header_degree);
+    return success;
+}
+

@@ -60,4 +60,16 @@ size_t header_index(size_t count, const Header * headers, const char * name);
 bool scan_headers_for_includes(
     size_t header_count, Header * headers,  StringList * system_includes);
 
+/**
+ * Topologically orders headers
+ * 
+ * Orders listed headers so that no header references (i.e. includes) any 
+ * header located to the right of it in the list. Since this algorithm reorders
+ * items in headers, it invalidates information about inclusions (inclusions
+ * are stored as indices to this array.)
+ * 
+ * Returns false if headers cannot be topologically ordered. Else returns true.
+ */
+bool topsort_headers(size_t header_count, Header * headers);
+
 #endif

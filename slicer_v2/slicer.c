@@ -67,6 +67,18 @@ bool _slice_inner(
         printf("\n");
     }
 
+    bool sorting_success = topsort_headers(header_count, headers);
+    if (!sorting_success) {
+        fprintf(stderr, "slicer: include statements are curcular\n");
+        return false;
+    }
+
+    printf("\ntopologically ordered headers:\n");
+    for (size_t i = 0; i < header_count; ++i) {
+        const Header * this_header = headers + i;
+        printf("(%2zu) %s:\n", i, this_header -> name);
+    }
+
     return false;
 
 }
