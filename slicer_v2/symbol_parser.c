@@ -18,6 +18,20 @@ static const char * const WORD_TYPEDEF = "typedef";
 static const char * const WORD_STRUCT = "struct";
 static const char * const WORD_ENUM = "enum";
 
+void token_destroy(Token * tok) {
+    if (tok -> kind == TK_IDENTIFIER) {
+        free(tok -> identifier);
+        tok -> identifier = NULL;
+    }
+}
+
+void symbol_destroy(PartialSymbol * symbol) {
+    if (symbol -> identifier) {
+        free(symbol -> identifier);
+        symbol -> identifier = NULL;
+    }
+}
+
 int fgetc_skip_space(FILE * file) {
     int c;
     do {
@@ -27,7 +41,10 @@ int fgetc_skip_space(FILE * file) {
 }
 
 Token get_next_token(FILE * file) {
-    Token res;
+    Token res = (Token) {
+        .kind = TK_FAIL,
+        .identifier = NULL
+    };
     int c = fgetc_skip_space(file);
     if (c == EOF && feof(file)) {
         res.kind = TK_END;
@@ -35,6 +52,18 @@ Token get_next_token(FILE * file) {
     }
     if (c == EOF) {
         res.kind = TK_FAIL;
+        return res;
+    }
+    if (c == '{') {
+        res.kind = TK_LEFT_CURLY;
+        return res;
+    }
+    if (c == '(') {
+        res.kind = TK_LEFT_PAREN;
+        return res;
+    }
+    if (c == ';') {
+        res.kind = TK_SEMICOLON;
         return res;
     }
     if (c == '*') {
@@ -70,15 +99,15 @@ Token get_next_token(FILE * file) {
             return res;
         }
         if (!strcmp(word, WORD_TYPEDEF)) {
-            res.kind = TK_FAIL;
+            res.kind = TK_TYPEDEF;
             return res;
         }
         if (!strcmp(word, WORD_STRUCT)) {
-            res.kind = TK_FAIL;
+            res.kind = TK_STRUCT;
             return res;
         }
         if (!strcmp(word, WORD_ENUM)) {
-            res.kind = TK_FAIL;
+            res.kind = TK_ENUM;
             return res;
         }
         res.kind = TK_IDENTIFIER;
@@ -89,69 +118,172 @@ Token get_next_token(FILE * file) {
     return res;
 }
 
-PartialSymbol get_next_partial_symbol(FILE * file) {
-    char * first_identifier = NULL,
-         * second_identifier = NULL;
-    bool is_function = false;
-    bool started_symbol = false;
-    PartialSymbol symbol = {NULL, SK_UNKNOWN, false};
-    while (true) {
-        Token tok = get_next_token(file);
-        if (tok.kind == TK_END && !started_symbol) {
-            symbol.kind = SK_END;
+Token get_next_real_token(FILE * file) {
+    Token t;
+    do {
+        t = get_next_token(file);
+    } while (t.kind == TK_PREPROCESSOR || t.kind == TK_COMMENT);
+    return t;
+}
+
+PartialSymbol _symbol_struct_enum(FILE * file) {
+    // struct or enum was consumed
+    char * identifier = NULL;
+    bool has_body = false;
+    Token tok = get_next_token(file);
+    if (tok.kind == TK_IDENTIFIER) {
+        identifier = tok.identifier;
+        tok = get_next_token(file);
+    }
+    if (tok.kind == TK_LEFT_CURLY) {
+        // don't need to destroy it, but technically should
+        // token_destroy(&tok);
+        has_body = true;
+        if (!skip_parentheses(file, '{')) {
+            free(identifier);
+            return (PartialSymbol) {
+                .identifier = NULL,
+                .kind = SK_UNKNOWN,
+            };
+        }
+        tok = get_next_token(file);
+    }
+    if (tok.kind == TK_SEMICOLON) {
+        return (PartialSymbol) {
+            .identifier = identifier,
+            .kind = has_body ? SK_TYPE_DEF : SK_TYPE_DEC,
+            .is_static = false
+        }; 
+    }
+    token_destroy(&tok);
+    free(identifier);
+    return (PartialSymbol) {
+        .identifier = NULL,
+        .kind = SK_UNKNOWN,
+    };
+}
+
+PartialSymbol _symbol_typedef(FILE * file) {
+    // typedef was consumed
+    PartialSymbol symbol = (PartialSymbol) {
+        .identifier = NULL,
+        .kind = SK_UNKNOWN
+    };
+    Token tok = get_next_real_token(file);
+    if (tok.kind != TK_STRUCT && tok.kind != TK_ENUM) {
+        token_destroy(&tok);
+        return symbol;
+    }
+    char * identifier = NULL;
+    tok = get_next_token(file);
+    if (tok.kind == TK_IDENTIFIER) {
+        token_destroy(&tok);
+        tok = get_next_token(file);
+    }
+    if (tok.kind == TK_LEFT_CURLY) {
+        if (!skip_parentheses(file, '{')) {
             return symbol;
         }
-        if (tok.kind == TK_FAIL || tok.kind == TK_END) {
-            symbol.kind = SK_UNKNOWN;
-            break;
-        }
-        if (tok.kind == TK_PREPROCESSOR || tok.kind == TK_COMMENT) {
+        tok = get_next_token(file);
+    }
+    if (tok.kind == TK_IDENTIFIER) {
+        identifier = tok.identifier;
+        // don't destroy tok
+        tok = get_next_token(file);
+    }
+    if (tok.kind == TK_SEMICOLON) {
+        return (PartialSymbol) {
+            .identifier = identifier,
+            .kind = SK_TYPE_DEF,
+            .is_static = false
+        };
+    }
+    token_destroy(&tok);
+    return symbol;
+}
+
+PartialSymbol _symbol_function(FILE * file, Token first_token) {
+    char * second_identifier = NULL;
+    bool first_identifier = false;
+    bool is_static = false;
+    bool failed = false;
+    bool has_body = false;
+    bool first_iteration = true;
+    while (true) {
+        Token tok = first_iteration ? first_token : get_next_token(file);
+        first_iteration = false;
+        if (tok.kind == TK_STATIC) {
+            is_static = true;
             continue;
         }
-
-        if (!started_symbol) started_symbol = true;
-
-        if (tok.kind == TK_STATIC) {
-            symbol.is_static = true;
+        if (tok.kind == TK_STAR || tok.kind == TK_CONST) {
             continue;
         }
         if (tok.kind != TK_IDENTIFIER) {
-            // this consumes comments and preprocessor macros also. 
-            // preprocessor code should not appear here, but it is siimply 
-            // not checked
-            continue;
+            failed = true;
+            break;
         }
         if (!first_identifier) {
-            first_identifier = tok.identifier;
+            first_identifier = true;
+            token_destroy(&tok);
             continue;
         }
         second_identifier = tok.identifier;
-        is_function = true;
-        break;
-    }
-    if (is_function) {
-        free(first_identifier);
-        symbol.identifier = second_identifier;
-        char last_char = _skip_rest_of_function(file);
-        switch (last_char) {
-            case ';': 
-                symbol.kind = SK_FUN_DEC;
-                break;
-            case '}':
-                symbol.kind = SK_FUN_DEF;
-                break;
-            default:
-                symbol.kind = SK_UNKNOWN;
-                free(symbol.identifier);
-                symbol.identifier = NULL;
+        tok = get_next_token(file);
+        if (tok.kind != TK_LEFT_PAREN || !skip_parentheses(file, '(')) {
+            token_destroy(&tok);
+            failed = true;
+            break;
         }
-        return symbol;
-    }
-    if (first_identifier)
-        free(first_identifier);
-    if (second_identifier)
+        tok = get_next_token(file);
+        if (tok.kind == TK_SEMICOLON) {
+            break;
+        }
+        if (tok.kind != TK_LEFT_CURLY || !skip_parentheses(file, '{')) {
+            token_destroy(&tok);
+            failed = true;
+            break;
+        }
+        has_body = true;
+        break;
+    };
+    if (failed) {
         free(second_identifier);
-    return symbol;
+        return (PartialSymbol) {
+            .identifier = NULL,
+            .kind = SK_UNKNOWN,
+        };
+    }
+    return (PartialSymbol) {
+        .identifier = second_identifier,
+        .kind = has_body ? SK_FUN_DEF : SK_FUN_DEC,
+        .is_static = is_static
+    };
+}
+
+PartialSymbol get_next_partial_symbol(FILE * file) {
+    Token tok = get_next_real_token(file);
+    if (tok.kind == TK_END) {
+        return (PartialSymbol) {
+            .identifier = NULL,
+            .kind = SK_END,
+            .is_static = false
+        };
+    }
+    if (tok.kind == TK_FAIL) {
+        return (PartialSymbol) {
+            .identifier = NULL,
+            .kind = SK_UNKNOWN,
+            .is_static = false
+        };
+    }
+    if (tok.kind == TK_TYPEDEF) {
+        return _symbol_typedef(file);
+    }
+    if (tok.kind == TK_STRUCT || tok.kind == TK_ENUM) {
+        return _symbol_struct_enum(file);
+    }
+    return _symbol_function(file, tok);
 }
 
 bool skip_rest_of_line(FILE * file) {

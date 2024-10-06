@@ -42,7 +42,13 @@ typedef enum {
     TK_FAIL,
     TK_END,
     TK_COMMENT,
-    TK_PREPROCESSOR
+    TK_PREPROCESSOR,
+    TK_TYPEDEF,
+    TK_ENUM,
+    TK_STRUCT,
+    TK_LEFT_PAREN,
+    TK_LEFT_CURLY,
+    TK_SEMICOLON,
 } TokenKind;
 
 /**
@@ -70,6 +76,8 @@ typedef struct {
     SymbolKind kind;
     bool is_static;
 } PartialSymbol;
+
+void token_destroy(Token * tok);
 
 int fgetc_skip_space(FILE * file);
 
