@@ -48,8 +48,13 @@ cap.h cap.c &: $(SLICER) public.symbols $(HEADERS) $(SOURCES)
 $(TEST_CAP_C) $(TEST_CAP_H) &: $(SLICER) $(HEADERS) $(SOURCES)
 	./$(SLICER) -H $(TEST_CAP_H) -C $(TEST_CAP_C)  $(HEADERS) $(SOURCES)
 
-$(SLICER): $(SLICER_DIR)/*.c $(SLICER_DIR)/*.h
-	$(CC) $(CCFLAGS) -I $(SLICER_DIR) -o $@ $(SLICER_DIR)/*.c
+slicer.normal: $(SLICER_DIR)/*.c $(SLICER_DIR)/*.h
+	$(CC) $(CCFLAGS) -I $(SLICER_DIR) -o $(SLICER) $(SLICER_DIR)/*.c
+
+slicer.debug: $(SLICER_DIR)/*.c $(SLICER_DIR)/*.h
+	$(CC) $(CCFLAGS) -I $(SLICER_DIR) -o $(SLICER) -DSLICER_DEBUG=1 $(SLICER_DIR)/*.c
+
+$(SLICER): slicer.normal
 
 test: $(TEST_TARGETS)
 
@@ -81,4 +86,4 @@ else
 	rm -f -d $(GENERATED_DIRS)
 endif
 
-.PHONY: all clean test $(TEST_TARGETS)
+.PHONY: all clean test $(TEST_TARGETS) slicer.normal slicer.debug

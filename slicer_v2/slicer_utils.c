@@ -6,6 +6,16 @@
 #include <stdio.h>
 #include <string.h>
 
+char * copy_string(const char * s) {
+    if (!s) {
+        return NULL;
+    }
+    size_t len = strlen(s) + 1;
+    char * res = (char *) malloc(len * sizeof(char));
+    memcpy(res, s, len);
+    return res;
+}
+
 StringList * sl_empty() {
     StringList * list = (StringList *) malloc(sizeof(StringList));
     list -> value = NULL;

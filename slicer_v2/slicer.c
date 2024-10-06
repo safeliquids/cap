@@ -1,5 +1,6 @@
 #include "header_analysis.h"
 #include "slicer_utils.h"
+#include "symbol_parser.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -40,10 +41,12 @@ bool _slice_inner(
             return false; 
         }
 
+#if SLICER_DEBUG == 1
         printf("public symbols:\n");
         for (const StringList * s = public_symbols; s -> tail; s = s -> tail) {
             printf("\t%s\n", s -> value);
         }
+#endif
     }
 
     register_headers(header_count, header_file_names, headers);
@@ -52,11 +55,11 @@ bool _slice_inner(
         return false;
     }
     
+#if SLICER_DEBUG == 1
     printf("\nsystem includes:\n");
     for (StringList * si = system_includes; si -> tail; si = si -> tail) {
         printf("\t%s\n", si -> value);
     }
-
     printf("\nheaders and their includes:\n");
     for (size_t i = 0; i < header_count; ++i) {
         const Header * this_header = headers + i;
@@ -68,18 +71,64 @@ bool _slice_inner(
         }
         printf("\n");
     }
+#endif
 
     bool sorting_success = topsort_headers(header_count, headers);
     if (!sorting_success) {
-        fprintf(stderr, "slicer: include statements are curcular\n");
+        fprintf(stderr, "slicer: include statements are circular\n");
         return false;
     }
 
+#if SLICER_DEBUG == 1
     printf("\ntopologically ordered headers:\n");
     for (size_t i = 0; i < header_count; ++i) {
         const Header * this_header = headers + i;
         printf("(%2zu) %s:\n", i, this_header -> name);
     }
+#endif
+
+#if SLICER_DEBUG == 1
+    printf("\nfirst header symbols:\n");
+    FILE * first_header = fopen(headers[0].filename, "r");
+    if (!first_header) {
+        fprintf(
+            stderr, "slicer: cannot open file %s\n", 
+            headers[0].filename);
+        return false;
+    }
+    bool good_reading = true;
+    while (true) {
+        // long int before_symbol = ftell(first_header);
+        PartialSymbol symbol = get_next_partial_symbol(first_header);
+        if (symbol.kind == SK_END) {
+            break;
+        }
+        if (symbol.kind == SK_UNKNOWN) {
+            good_reading = false;
+            break;
+        }
+        if (symbol.kind == SK_FUN_DEC) {
+            printf(
+                "\tfunction declaration: %s %s\n", 
+                symbol.is_static ? "static" : "      ", symbol.identifier);
+        }
+        if (symbol.kind == SK_FUN_DEF) {
+            printf(
+                "\tfunction definition: %s %s\n", 
+                symbol.is_static ? "static" : "      ", symbol.identifier);
+        }
+        if (symbol.identifier) {
+            free(symbol.identifier);
+        }
+    }
+    fclose(first_header);
+    if (!good_reading) {
+        fprintf(
+            stderr, "slicer: could not read from file %s\n", 
+            headers[0].filename);
+        return false;
+    }
+#endif
 
     return false;
 

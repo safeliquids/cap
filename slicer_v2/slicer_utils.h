@@ -7,6 +7,8 @@
 
 #define LLR_LINE_BUFFER_LENGTH 1024u
 
+char * copy_string(const char * s);
+
 typedef struct SL {
     char * value;
     struct SL * tail;
