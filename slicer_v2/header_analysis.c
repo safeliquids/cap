@@ -1,5 +1,7 @@
 #include "header_analysis.h"
+#include "slicer_utils.h"
 
+#include <assert.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -8,43 +10,53 @@
 
 #define LINE_BUFFER_SIZE 1024
 
+bool read_public_symbols_inner(
+    LimitedLineReader * reader, StringList * symbols, 
+    const char * symbol_file_name) 
+{
+    while (true) {
+        llr_advance(reader);
+        switch (reader -> status) {
+            case OK:
+                break;
+            case END:
+                return true;
+            case TOO_LONG:
+                fprintf(
+                    stderr, "slicer: line %zu of file %s was too long\n", 
+                    reader -> line_number, symbol_file_name);
+                return false;
+            case FAIL:
+                fprintf(
+                    stderr, "slicer: error reading from file %s\n", 
+                    symbol_file_name);
+                return false;
+            default:
+                assert(false && "unreachable in read_public_symbols_inner");
+        }
+        char * s = reader -> line_buffer;
+        s[reader -> line_length - 1] = 0;  // removes newline
+        while (isspace(*s)) {
+            ++s;
+        }
+        if (!*s || *s == '#') {
+            continue;
+        }
+        // this ignores duplicate symbols, idk if that is good
+        sl_insert_if_missing(symbols, s);  
+    }
+    return true;
+}
+
 bool read_public_symbols(const char * symbol_file_name, StringList * symbols) {
-    FILE * symbol_file = fopen(symbol_file_name, "r");
-    if (!symbol_file) {
+    LimitedLineReader reader = llr_open(symbol_file_name);
+    if (reader.status == FAIL) {
         fprintf(stderr, "slicer: cannot read from file %s\n", symbol_file_name);
         return false;
     }
-    bool success = true;
-    char line_buffer[LINE_BUFFER_SIZE];
-    size_t line_count = 0;
-    
-    while (true) {
-        char * s = fgets(line_buffer, LINE_BUFFER_SIZE, symbol_file);
-        int eof = feof(symbol_file);
-        if (!s && eof) { 
-            break;
-        }
-        if (!s) {
-            success = false;
-            fprintf(stderr, "slicer: error reading from file %s\n", symbol_file_name);
-            break;
-        }
-        ++line_count;
-        size_t len = strlen(s);
-        if (s[len - 1] != '\n') {
-            success = false;
-            fprintf(stderr, "slicer: line %zu of file %s was too long\n", line_count, symbol_file_name);
-            break;
-        }
-        if (len == 1u || s[0] == '#') {
-            continue;
-        }
-        s[len - 1] = 0;
-        // this ignores duplicate symbols, idk if that is good
-        add_str_if_not_present(symbols, s);  
-    }
-
-    fclose(symbol_file);
+    bool success = read_public_symbols_inner(
+        &reader, symbols, symbol_file_name);
+    llr_close(&reader);
     return success;
 }
 
@@ -90,7 +102,7 @@ size_t header_index(size_t count, const Header * headers, const char * name) {
  * 
  */
 const char * find_include(const char * line) {
-    static char include[LINE_BUFFER_SIZE];
+    static char include[LLR_LINE_BUFFER_LENGTH];
     if (strncmp(line, "#include", 8)) {
         return NULL;
     }
@@ -127,33 +139,31 @@ const char * find_include(const char * line) {
  * false.
  */
 bool scan_one_header_for_includes(
-    FILE * file, Header * this_header, size_t header_count,
+    LimitedLineReader * reader, Header * this_header, size_t header_count,
     const Header * headers, StringList * sys_includes)
 {
-    char line_buffer[LINE_BUFFER_SIZE];
-    size_t line_number = 0;
     while (true) {
-        ++line_number;
-        char * s = fgets(line_buffer, LINE_BUFFER_SIZE, file);
-        int eof = feof(file);
-        if (!s && eof) {
-            // nothing more to read from file
-            break;
-        }
-        if (!s) {
-            fprintf(
-                stderr, "slicer: error reading from file %s:%zu\n", 
-                this_header -> name, line_number);
-            return false;
-        }
-        size_t len = strlen(s);
-        if (!eof && s[len - 1] != '\n') {
-            fprintf(
-                stderr, "slicer: line is too long in file %s:%zu\n", 
-                this_header -> name, line_number);
-            return false;
+        llr_advance(reader);
+        switch (reader -> status) {
+            case OK:
+                break;
+            case FAIL:
+                fprintf(
+                    stderr, "slicer: error reading from file %s:%zu\n", 
+                    this_header -> name, reader -> line_number);
+                return false;
+            case TOO_LONG:
+                fprintf(
+                    stderr, "slicer: error reading from file %s:%zu\n", 
+                    this_header -> name, reader -> line_number);
+                return false;
+            case END:
+                return true;
+            default:
+                assert(false && "unreachable in scan_one_header_for_includes");
         }
 
+        char * s = reader -> line_buffer;
         while (*s && isspace(*s)) 
             ++s;
         if (*s != '#')
@@ -165,13 +175,13 @@ bool scan_one_header_for_includes(
         }
         if (*included_file == '<') {
             // add to system files
-            add_str_if_not_present(sys_includes, included_file + 1);
+            sl_insert_if_missing(sys_includes, included_file + 1);
             continue;
         }
         const char * user_include = included_file + 1;
         size_t include_index = header_index(header_count, headers, user_include);
         if (include_index == (size_t)-1) {
-            fprintf(stderr, "slicer: found unknown user include \"%s\" in file %s:%zu\n", user_include, this_header -> name, line_number);
+            fprintf(stderr, "slicer: found unknown user include \"%s\" in file %s:%zu\n", user_include, this_header -> name, reader -> line_number);
             return false;
         }
         // reallocate include list if necessary
@@ -191,15 +201,15 @@ bool scan_headers_for_includes(
     size_t header_count, Header * headers, StringList * sys_includes) 
 {
     for (size_t i = 0; i < header_count; ++i) {
-        FILE * current_file = fopen(headers[i].filename, "r");
-        if (!current_file) {
+        LimitedLineReader reader = llr_open(headers[i].filename);
+        if (reader.status == FAIL) {
             fprintf(stderr, "slicer: cannot open file %s\n", headers[i].filename);
             return false;
         }
         bool success = scan_one_header_for_includes(
-            current_file, headers + i, header_count, headers, 
+            &reader, headers + i, header_count, headers, 
             sys_includes);
-        fclose(current_file);
+        llr_close(&reader);
         if (!success) {
             // error message was printed by scan_one_header_for_includes
             return false;
