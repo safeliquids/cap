@@ -1,8 +1,10 @@
-#include "cap.h"
+#include "parsed_arguments.h"
+#include "typed_union.h"
 
 #include "test.h"
 
 #include <assert.h>
+#include <string.h>
 
 static bool _compare_typed_union(const TypedUnion * a, const TypedUnion * b) {
     if (!a && !b) {

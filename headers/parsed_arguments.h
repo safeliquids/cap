@@ -1,25 +1,105 @@
 #ifndef __PARSED_ARGUMENTS_H__
 #define __PARSED_ARGUMENTS_H__
 
-#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
 
-#include "types.h"
 #include "typed_union.h"
 
 // ============================================================================
-// === DECLARATION OF PRIVATE FUNCTIONS =======================================
+// === PARSED ARGUMENTS: TYPE DEFINITIONS =====================================
 // ============================================================================
 
-ParsedFlag * _cap_pa_get_flag(const ParsedArguments * args, const char * flag);
-ParsedPositional * _cap_pa_get_positional(
-    const ParsedArguments * args, const char * name);
+/**
+ * Stores information about a flag in a `ParsedArguments` object.
+ * 
+ * Stores the values associated with a single flag in a `ParsedArguments`
+ * object. Objects of this type should never be directly created or accessed
+ * by the user.
+ * 
+ * @see ParsedArguments
+ * @see TypedUnion
+ */
+typedef struct {
+    /// Name of the flag The object should be considered the 'owner' of 
+    /// this string.
+    char * mName;
+    /// Number of values stored for this flag
+    size_t mValueCount;
+    /// Number of values that can currently be stored in `mValues`
+    size_t mValueAlloc;
+    /// Array of stored values. This object should be considered the owner 
+    /// of these values.
+    TypedUnion * mValues;   
+} ParsedFlag;
+
+/**
+ * Stores information about a positional argument in a `ParsedArguments` object.
+ * 
+ * Stores a value for a positional argument. Unlike flags, positionals may only
+ * have one `TypedUnion` value.
+ * 
+ * @see ParsedArguments
+ * @see TypedUnion
+ */
+typedef struct {
+    /// Name of the argument. The object should be considered the owner of 
+    /// this string.
+    char * mName;
+    /// Stored value of the positional. The object should be considered the 
+    /// owner of this TypedUnion value. 
+    TypedUnion mValue;
+} ParsedPositional;
+
+/**
+ * Stores all information about command line arguments after successful
+ * parsing.
+ * 
+ * This structure is the main result of parsing command line arguments by a
+ * configured parser. All flags and positional arguments are stored with their
+ * values as `TypedUnion` objects. Objects of this type should not be created 
+ * directly. The function `cap_parser_parse` should be used instead. Similarly, 
+ * information about flags and positionals should be obtained using functions 
+ * such as `cap_pa_has_flag` or `cap_pa_get_positional`. 
+ * 
+ * Once created using the `cap_parser_parse` or `cap_pa_make_empty` functions,
+ * the caller owns this object and should dispose of it using `cap_pa_destroy`
+ * once it is no longer needed. When created by `cap_parser_parse`, the pointer
+ * returned by this function must also be freed. (this is an unfortunate
+ * technical limitation.) `cap_pa_destroy` also deletes all data contained in
+ * it, including names of flags, and `TypedUnion`s and strings contained
+ * in them. If any data obtained from a `ParsedArguments` should be usable 
+ * after destroying the object, it must be properly copied.
+ * 
+ * @see ParsedFlag
+ * @see ParsedPositional
+ * @see cap_pa_make_empty
+ * @see cap_pa_destroy
+ * @see cap_pa_has_flag
+ * @see cap_pa_flag_count
+ * @see cap_pa_get_flag
+ * @see cap_pa_get_flag_i
+ * @see cap_pa_has_positional
+ * @see cap_pa_get_positional
+ */
+typedef struct {
+    /// Number of differend flags stored
+    size_t mFlagCount;
+    /// Number of flags that can currently be stored in mFlags
+    size_t mFlagAlloc;
+    /// Information about individual parsed flags
+    ParsedFlag * mFlags;
+
+    /// Number of positional arguments
+    size_t mPositionalCount;
+    /// Number of arguments that can currently be stored in mPositionals
+    size_t mPositionalAlloc;
+    /// Information about individual positional arguments
+    ParsedPositional * mPositionals;
+} ParsedArguments;
 
 // ============================================================================
-// === FACTORY FUNCTION =======================================================
+// === PARSED ARGUMENTS: CREATION AND DELETION ================================
 // ============================================================================
 
 /**
@@ -27,22 +107,7 @@ ParsedPositional * _cap_pa_get_positional(
  * 
  * Creates a `ParsedArguments` containing no flags or positionals.
  */
-ParsedArguments * cap_pa_make_empty() {
-    ParsedArguments * pa = (ParsedArguments *) malloc(sizeof(ParsedArguments));
-    *pa = (ParsedArguments) {
-        .mFlagCount = 0,
-        .mFlagAlloc = 0,
-        .mFlags = NULL,
-        .mPositionalCount = 0,
-        .mPositionalAlloc = 0,
-        .mPositionals = NULL
-    };
-    return pa;
-}
-
-// ============================================================================
-// === DISPOSAL ===============================================================
-// ============================================================================
+ParsedArguments * cap_pa_make_empty();
 
 /**
  * Destroys a `ParsedArguments` object
@@ -52,35 +117,10 @@ ParsedArguments * cap_pa_make_empty() {
  * 
  * @param args object to destroy. If it is `NULL`, this function does nothing.
  */
-void cap_pa_destroy(ParsedArguments * args) {
-    if (!args) return;
-    for (size_t i = 0; i < args -> mFlagCount; ++i) {
-        ParsedFlag * pf = args -> mFlags + i;
-        free(pf -> mName);
-        pf -> mName = NULL;
-        for (size_t j = 0; j < pf -> mValueCount; ++j) {
-            cap_tu_destroy(pf -> mValues + j);
-        }
-        free(pf -> mValues);
-        pf -> mValues = NULL;
-        pf -> mValueAlloc = pf -> mValueCount = 0u;
-    }
-    args -> mFlags = NULL;
-    args -> mFlagCount = args -> mFlagAlloc = 0u;
-
-    for (size_t i = 0; i < args -> mPositionalCount; ++i) {
-        ParsedPositional * pp = args -> mPositionals + i;
-        free(pp -> mName);
-        pp -> mName = NULL;
-        cap_tu_destroy(&(pp -> mValue));
-    }
-    args -> mPositionals = NULL;
-    args -> mPositionalCount = args -> mPositionalAlloc = 0u;
-    free(args);
-}
+void cap_pa_destroy(ParsedArguments * args);
 
 // ============================================================================
-// === ACCESS TO PARSED FLAGS =================================================
+// === PARSED ARGUMENTS: ACCESS TO PARSED FLAGS ===============================
 // ============================================================================
 
 /**
@@ -91,15 +131,13 @@ void cap_pa_destroy(ParsedArguments * args) {
  *        flag prefix characters (such as '-').
  * @return `true` if `flag` is present
  */
-bool cap_pa_has_flag(const ParsedArguments * args, const char * flag) {
-    return (bool) _cap_pa_get_flag(args, flag);
-}
+bool cap_pa_has_flag(const ParsedArguments * args, const char * flag);
 
 /**
  * Returns the number of times a flag was given.
  * 
  * If `flag` is not present in `args`, returns zero. If a `ParsedArgument` is 
- * only modified using library functions (such as `cap_pa_add_flag`), it is not 
+ * only modified using library functions (such as `cap_pa_add_flag`), it is not
  * possible to create a flag with no values. Therefore, `cap_pa_flag_count` 
  * returning zero is equivalent to `cap_pa_has_flag` returning false.
  * 
@@ -108,11 +146,7 @@ bool cap_pa_has_flag(const ParsedArguments * args, const char * flag) {
  *        leading flag prefix characters (such as '-').
  * @return number of values stored for the given flag
  */
-size_t cap_pa_flag_count(const ParsedArguments * args, const char * flag) {
-    const ParsedFlag * pf = _cap_pa_get_flag(args, flag);
-    if (!pf) return 0u;
-    return pf -> mValueCount;
-}
+size_t cap_pa_flag_count(const ParsedArguments * args, const char * flag);
 
 /**
  * Retrieves a value stored in the given flag, or `NULL` if it is absent.
@@ -122,19 +156,12 @@ size_t cap_pa_flag_count(const ParsedArguments * args, const char * flag) {
  * object is returned, `args` remains the owner of that object.
  * 
  * @param args `ParsedArguments` object to search
- * @param flag name of the falg to look up including any flag prefix characters 
+ * @param flag name of the falg to look up including any flag prefix characters
  *        (such as '-').
  * @return pointer to the first value for this flag, or `NULL`.
  */
 const TypedUnion * cap_pa_get_flag(
-        const ParsedArguments * args, const char * flag) {
-    const ParsedFlag * pf = _cap_pa_get_flag(args, flag);
-    if (!pf) {
-        return NULL;
-    }
-
-    return pf -> mValues;
-}
+    const ParsedArguments * args, const char * flag);
 
 /**
  * Retrieves a value stored in the given flag, at the given position.
@@ -145,93 +172,53 @@ const TypedUnion * cap_pa_get_flag(
  * owner of that object.
  * 
  * @param args `ParsedArguments` object to search
- * @param flag name of the falg to look up including any flag prefix characters 
- *        (such as '-').
+ * @param flag name of the falg to look up including any flag prefix 
+ *        characters (such as '-').
  * @param index position of the value
  * @return pointer to the value for this flag indicated by `index`, or `NULL`.
  */
 const TypedUnion * cap_pa_get_flag_i(
-        const ParsedArguments * args, const char * flag, size_t index) {
-    const ParsedFlag * pf = _cap_pa_get_flag(args, flag);
-    if (!pf || index >= pf -> mValueCount) {
-        return NULL;
-    }
-    return pf -> mValues + index;
-}
+    const ParsedArguments * args, const char * flag, size_t index);
+
 /**
  * Inserts a new value for the given flag.
  * 
- * Appends a new value for the given flag to its list of values. `args` becomes 
- * the owner of `value`. If the flag is not yet present, it is created. In this 
+ * Appends a new value for the given flag to its list of values. `args` becomes
+ * the owner of `value`. If the flag is not yet present, it is created. In this
  * process, the flag name is copied and `args` becomes the owner of this copy.
  * 
  * @param args `ParsedArguments` object to add the flag into. If it is `NULL`,
  *        the function does nothing.
- * @param flag null-terminated name of the flag in question including any flag 
+ * @param flag null-terminated name of the flag in question including any flag
  *        prefix characters. If it is `NULL`, the function does nothing.
  * @param value value to store for the flag
  */
 void cap_pa_add_flag(
-        ParsedArguments * args, const char * flag, TypedUnion value) {
-    if (!args || !flag) return;
-    ParsedFlag * pf = _cap_pa_get_flag(args, flag);
-    if (!pf) {
-        // create a new flag in args
-        if (args -> mFlagAlloc == 0u) {
-            args -> mFlagAlloc = 4;
-            args -> mFlags = (ParsedFlag *) malloc(4 * sizeof(ParsedFlag));
-        }
-        if (args -> mFlagCount >= args -> mFlagAlloc) {
-            args -> mFlagAlloc *= 2;
-            args -> mFlags = (ParsedFlag *) realloc(
-                args -> mFlags, (args -> mFlagAlloc) * sizeof(ParsedFlag));
-        }
-        
-        ParsedFlag new_flag = (ParsedFlag) {
-            .mName = copy_string(flag),
-            .mValueCount = 0u,
-            .mValueAlloc = 1u,
-            .mValues = (TypedUnion *) malloc(sizeof(TypedUnion))
-        };
-
-        args -> mFlags[args -> mFlagCount] = new_flag;
-        pf = args -> mFlags + args -> mFlagCount;
-        ++(args -> mFlagCount);
-    }
-    // now pf definitely is not NULL and points to the flag where the new value 
-    // should be added
-    if (pf -> mValueCount >= pf -> mValueAlloc) {
-        pf -> mValueAlloc *= 2;
-        pf -> mValues = (TypedUnion *) realloc(
-            pf -> mValues, (pf -> mValueAlloc) * sizeof(TypedUnion));
-    }
-    pf -> mValues[pf -> mValueCount++] = value;
-}
+    ParsedArguments * args, const char * flag, TypedUnion value);
 
 // ============================================================================
-// === ACCESS TO PARSED POSITIONAL ARGUMENTS ==================================
+// === PARSED ARGUMENTS: ACCESS TO PARSED POSITIONAL ARGUMENTS ================
 // ============================================================================
 
 /**
  * Checks if a positinal argument with this name exists.
  * 
- * Checks if `args` contains a positional argument with the name `name`. If `args` or `name` are `NULL`, always returns `false`.
+ * Checks if `args` contains a positional argument with the name `name`. If 
+ * `args` or `name` are `NULL`, always returns `false`.
  * 
  * @param args object to search
  * @param name null-terminated argument name
  * @return `true` if a positional argument `name` exists
  */
-bool cap_pa_has_positional(const ParsedArguments * args, const char * name) {
-    return (bool) _cap_pa_get_positional(args, name);
-}
+bool cap_pa_has_positional(const ParsedArguments * args, const char * name);
 
 /**
  * Retrieves a positional argument with the given name.
  * 
- * Checks if `args` contains a positional argument named `name` and, if it is 
+ * Checks if `args` contains a positional argument named `name` and, if it is
  * present, returns a pointer to its value. Returns `NULL` if no such 
- * positional argument exists or if `args` or `name` are `NULL`. Do note that, 
- * if a valid pointer to a `TypedUnion` object is returned, `args` remains the 
+ * positional argument exists or if `args` or `name` are `NULL`. Do note that,
+ * if a valid pointer to a `TypedUnion` object is returned, `args` remains the
  * owner of that object.
  * 
  * @param args object to search
@@ -239,13 +226,7 @@ bool cap_pa_has_positional(const ParsedArguments * args, const char * name) {
  * @returns pointer to the argument's value, or `NULL` if it is not found.
  */
 const TypedUnion * cap_pa_get_positional(
-        const ParsedArguments * args, const char * name) {
-    const ParsedPositional * pp =  _cap_pa_get_positional(args, name);
-    if (!pp) {
-        return NULL;
-    }
-    return &(pp -> mValue);
-}
+    const ParsedArguments * args, const char * name);
 
 /**
  * Sets a value for the given argument.
@@ -253,77 +234,19 @@ const TypedUnion * cap_pa_get_positional(
  * Finds a positional argument with the given name and replaces its value with 
  * `value`.
  * In this process, `args` becomes the owner of `value`. Only newly created 
- * `TypedUnion` objects should be passed to this functions. Passing a (shallow) 
- * copy of a `TypedUnion` with dynamic memory (such as the string type) that is 
+ * `TypedUnion` objects should be passed to this functions. Passing a (shallow)
+ * copy of a `TypedUnion` with dynamic memory (such as the string type) that is
  * already owned by a `ParsedArguments` will lead to double-free faults.
  * 
  * If no positional argument with the name `name` exists in `args`, it is 
  * created. A copy of `name` is made when creating the argument in `args`.
  * 
  * @param args object to set the new value in
- * @param name null-terminated name of the positional argument to set a new value for
+ * @param name null-terminated name of the positional argument to set a new 
+ *        value for
  * @param value the new value. `args` becomes the owner of this object.
  */
 void cap_pa_set_positional(
-        ParsedArguments * args, const char * name, const TypedUnion value) {
-    ParsedPositional * pp = _cap_pa_get_positional(args, name);
-
-    if (pp) {
-        cap_tu_destroy(&(pp -> mValue));
-        pp -> mValue = value;
-        return;
-    }
-    
-    if (args -> mPositionalAlloc == 0u) {
-        args -> mPositionalAlloc = 4u;
-        args -> mPositionals = (ParsedPositional *) malloc(
-            4 * sizeof(ParsedPositional));
-    }
-    if (args -> mPositionalCount >= args -> mPositionalAlloc) {
-        args -> mPositionalAlloc *= 2;
-        args -> mPositionals = (ParsedPositional *) realloc(
-            args -> mPositionals,
-            args -> mPositionalAlloc * sizeof(ParsedPositional));
-    }
-
-    ParsedPositional new_positional = (ParsedPositional) {
-        .mName = copy_string(name),
-        .mValue = value
-    };
-
-    args -> mPositionals[(args -> mPositionalCount)++] = new_positional;
-}
-
-// ============================================================================
-// === IMPLEMENTATION OF PRIVATE FUNCTIONS ====================================
-// ============================================================================
-
-ParsedFlag * _cap_pa_get_flag(
-        const ParsedArguments * args, const char * flag) {
-    if (!args || !flag) {
-        return NULL;
-    }
-    for (size_t i = 0; i < args -> mFlagCount; ++i) {
-        ParsedFlag * pf = args -> mFlags + i;
-        if (strcmp(pf -> mName, flag) == 0) {
-            return pf;
-        }
-    }
-    return NULL;
-}
-
-ParsedPositional * _cap_pa_get_positional(
-        const ParsedArguments * args, const char * name) {
-    if (!args || !name) {
-        return NULL;
-    }
-    for (size_t i = 0; i < args -> mPositionalCount; ++i)  {
-        ParsedPositional * pp = args -> mPositionals + i;
-        if (strcmp(pp -> mName, name) == 0) {
-            return pp;
-        }
-    }
-    return NULL;
-}
+    ParsedArguments * args, const char * name, const TypedUnion value);
 
 #endif

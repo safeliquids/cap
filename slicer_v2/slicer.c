@@ -28,20 +28,22 @@ bool _slice_inner(
     const size_t source_count, const char * const * const source_file_names,
     StringList * public_symbols, Header * headers, StringList * system_includes)
 {
-    bool reading_success = read_public_symbols(
-        symbol_file_name, public_symbols);
-    if (!reading_success) {
-        return false;
-        // error message is printed in read_symbol_file if something bad happened
-    }
-    if (sl_is_empty(public_symbols)) {
-        fprintf(stderr, "slicer: no public symbols\n");
-        return false; 
-    }
+    if (symbol_file_name) {
+        bool reading_success = read_public_symbols(
+            symbol_file_name, public_symbols);
+        if (!reading_success) {
+            return false;
+            // error message is printed in read_symbol_file if something bad happened
+        }
+        if (sl_is_empty(public_symbols)) {
+            fprintf(stderr, "slicer: no public symbols\n");
+            return false; 
+        }
 
-    printf("public symbols:\n");
-    for (const StringList * s = public_symbols; s -> tail; s = s -> tail) {
-        printf("\t%s\n", s -> value);
+        printf("public symbols:\n");
+        for (const StringList * s = public_symbols; s -> tail; s = s -> tail) {
+            printf("\t%s\n", s -> value);
+        }
     }
 
     register_headers(header_count, header_file_names, headers);

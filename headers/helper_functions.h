@@ -1,9 +1,6 @@
 #ifndef __HELPER_FUNCTIONS_H__
 #define __HELPER_FUNCTIONS_H__
 
-#include <stdlib.h>
-#include <string.h>
-
 // ============================================================================
 // === HELPER FUNCTIONS =======================================================
 // ============================================================================
@@ -19,15 +16,7 @@
  * @param string original null-terminated string
  * @return pointer to the copy of the given string 
  */
-char * copy_string(const char * string) {
-    if (!string) {
-        return NULL;
-    }
-    const int len = strlen(string);
-    char * copy = (char *) malloc((len + 1) * sizeof(char));
-    memcpy(copy, string, len + 1);
-    return copy;
-}
+char * copy_string(const char * string);
 
 /**
  * Replaces a string with a new value.
@@ -44,16 +33,7 @@ char * copy_string(const char * string) {
  * @param property pointer to a string that should be repalced
  * @param value null-terminated string, or `NULL`
  */
-void set_string_property(char ** property, const char * value) {
-    if (!property) {
-        return;
-    }
-    if (*property) {
-        free(*property);
-    }
-    // copy_string returns NULL if its argument is NULL
-    *property = copy_string(value);
-}
+void set_string_property(char ** property, const char * value);
 
 /**
  * Deletes a string stored in `*property`
@@ -64,37 +44,6 @@ void set_string_property(char ** property, const char * value) {
  * 
  * @param property pointer to a string that should be deleted
  */
-void delete_string_property(char ** property) {
-    set_string_property(property, NULL);
-}
-
-/**
- * Get an string representation of type.
- *
- * Returns a null-terminated string representing the given data type. If 
- * DT_PRESENCE is given, returns NULL instead. This should be used in help and
- * usage messages.
- *
- * @param type data type to display
- * @return string representation of the type, or NULL if type is  DT_PRESENCE 
- */
-static const char * cap_type_metavar(DataType type) {
-    const char * type_metavar;
-    switch (type) {
-        case DT_DOUBLE:
-            type_metavar = "DOUBLE";
-            break;
-        case DT_INT:
-            type_metavar = "INT";
-            break;
-        case DT_STRING:
-            type_metavar = "STRING";
-            break;
-        case DT_PRESENCE:
-        default:
-            type_metavar = NULL;
-    }
-    return type_metavar;
-}
+void delete_string_property(char ** property);
 
 #endif

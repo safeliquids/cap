@@ -1,12 +1,25 @@
 #ifndef __FLAG_INFO_H__
 #define __FLAG_INFO_H__
 
-#include "types.h"
 #include "typed_union.h"
-#include "helper_functions.h"
 
 #include <stdio.h>
-#include <stdlib.h>
+
+// ============================================================================
+// === FLAG INFO ==============================================================
+// ============================================================================
+
+/**
+ * Configuration of a flag in an `ArgumentParser`
+ */
+typedef struct {
+    char * mName;
+    char * mMetaVar;
+    char * mDescription;
+    DataType mType;
+    int mMinCount;
+    int mMaxCount;
+} FlagInfo;
 
 /**
  * Get a text representation of this flag's argument.
@@ -19,15 +32,7 @@
  * @param fi object to get the representation of
  * @return string representation of the flag's value
  */
-static const char * cap_get_flag_metavar(const FlagInfo * fi) {
-    if (!fi || fi -> mType == DT_PRESENCE) {
-        return NULL;
-    }
-    if (fi -> mMetaVar) {
-        return fi -> mMetaVar;
-    }
-    return cap_type_metavar(fi -> mType);
-}
+const char * cap_get_flag_metavar(const FlagInfo * fi);
 
 /**
  * Factory for FlagInfo objects.
@@ -53,20 +58,9 @@ static const char * cap_get_flag_metavar(const FlagInfo * fi) {
  *        number is given, there is no upper limit.
  * @return new FlagInfo object
  */
-static FlagInfo * cap_flag_info_make(
-        const char * name, const char * meta_var, const char * description,
-        DataType type, int min_count, int max_count) {
-    FlagInfo * info = (FlagInfo *) malloc(sizeof(FlagInfo));
-    *info = (FlagInfo) {
-        .mName = copy_string(name),
-        .mMetaVar = copy_string(meta_var),
-	.mDescription = copy_string(description),
-        .mType = type,
-        .mMinCount = min_count,
-        .mMaxCount = max_count	
-    };
-    return info;
-}
+FlagInfo * cap_flag_info_make(
+    const char * name, const char * meta_var, const char * description,
+    DataType type, int min_count, int max_count);
 
 /**
  * Destructor for FlagInfo objects
@@ -76,15 +70,7 @@ static FlagInfo * cap_flag_info_make(
  *
  * @param info object to destroy
  */
-static void cap_flag_info_destroy(FlagInfo * info) {
-    if (!info) {
-        return;
-    }
-    delete_string_property(&(info -> mName));
-    delete_string_property(&(info -> mMetaVar));
-    delete_string_property(&(info -> mDescription));
-    free(info);
-}
+void cap_flag_info_destroy(FlagInfo * info);
 
 /**
  * Displays a FlagInfo object
@@ -95,16 +81,7 @@ static void cap_flag_info_destroy(FlagInfo * info) {
  * @param file file to display into
  * @flag object to display
  */
-static void cap_print_flag_info(FILE * file, const FlagInfo * flag) {
-    fprintf(file, "\t%s", flag -> mName);
-    if (flag -> mType != DT_PRESENCE) {
-        fprintf(file, " %s", cap_get_flag_metavar(flag));
-    }
-    if (flag -> mDescription) {
-        fprintf(file, "\t%s", flag -> mDescription);
-    }
-    fputc('\n', file);
-}
+void cap_print_flag_info(FILE * file, const FlagInfo * flag);
 
 #endif
 

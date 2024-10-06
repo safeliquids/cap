@@ -2,12 +2,71 @@
 #define __TYPED_UNION_H__
 
 #include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
 
-#include "types.h"
-#include "helper_functions.h"
+// ============================================================================
+// === TYPED UNION: TYPE DEFINITIONS ==========================================
+// ============================================================================
+
+/**
+ * Identifies data type of parsed values
+ * 
+ * For the purposes of the `cap` library, every value has a data type. That
+ * type is, however, not known at compile-time (because parsers are created by
+ * the user at run-time). Values are stored as Typed Unions,
+ * and their type is represented by DataType.
+ * @see TypedUnion
+ */
+typedef enum {
+    /// integer value, corresponds to the `int` type
+    DT_INT,
+    /// real value, corresponds to the `double` type
+    DT_DOUBLE,
+    /// character string value, corresponds to a null-terminated string
+    DT_STRING,
+    /// used for flags that do not store any information other than their 
+    /// presence or absence
+    DT_PRESENCE  
+} DataType;
+
+/**
+ * Elementary storage of values whose type is not known at compile-time.
+ * 
+ * For the purposes of the `cap` library, every value has a data type. That
+ * type is, however, not known at compile-time (because parsers are created by
+ * the user at run-time). Values are stored in a union type and marked with
+ * their type using the DataType enum.
+ * @see DataType.
+ * 
+ * The type of a TypedUnion should always be inspected using functions such as
+ * `cap_tu_is_double()`, and values from them should only be extracted using
+ * functions such as `cap_tu_as_double()`, and after checking the type.
+ * @see cap_tu_is_double
+ * @see cap_tu_is_int
+ * @see cap_tu_is_presence
+ * @see cap_tu_is_string
+ * @see cap_tu_as_double
+ * @see cap_tu_as_int
+ * @see cap_tu_as_string
+ * 
+ * `TypedUnion` objects should always be created using factory functions such
+ * as `cap_tu_make_double()`.
+ * @see cap_tu_make_double
+ * @see cap_tu_make_int
+ * @see cap_tu_make_presence
+ * @see cap_tu_make_string
+ */
+typedef struct {
+    /// type of the stored value
+    DataType mType;
+    union {
+        /// stores the value for DT_INT type
+        int asInt;
+        /// stores the value for DT_DOUBLE type
+        double asDouble;
+        /// stores the value for DT_STRING type
+        char * asString;
+    } mValue;
+} TypedUnion;
 
 // ============================================================================
 // === TYPED UNION CREATION AND DESTRUCTION ===================================
@@ -16,25 +75,19 @@
 /**
  * Create a new `TypedUnion` of type `double`
  */
-TypedUnion cap_tu_make_double(double value) {
-    return (TypedUnion) { .mType = DT_DOUBLE, .mValue = { .asDouble = value } };
-}
+TypedUnion cap_tu_make_double(double value);
 
 /**
  * Create a new `TypedUnion` of type `int`
  */
-TypedUnion cap_tu_make_int(int value) {
-    return (TypedUnion) { .mType = DT_INT, .mValue = { .asInt = value } };
-}
+TypedUnion cap_tu_make_int(int value);
 
 /**
  * Create a new `TypedUnion` of type `presence`
  * 
  * The presence type is used for flags that do not store any explicit value.
  */
-TypedUnion cap_tu_make_presence() {
-    return (TypedUnion) { .mType = DT_PRESENCE };
-}
+TypedUnion cap_tu_make_presence();
 
 /**
  * Create a new `TypedUnion` of type `string`
@@ -45,10 +98,7 @@ TypedUnion cap_tu_make_presence() {
  * owned by a `ParsedArguments` object so users of the `cap` library do not 
  * need to call `cap_du_destroy` directly.
  */
-TypedUnion cap_tu_make_string(const char * value) {
-    char * const value_copy = copy_string(value);
-    return (TypedUnion) { .mType = DT_STRING, .mValue = { .asString = value_copy } };
-}
+TypedUnion cap_tu_make_string(const char * value);
 
 /**
  * Destroys a `TypedUnion` object
@@ -60,14 +110,7 @@ TypedUnion cap_tu_make_string(const char * value) {
  * @param tu `TypedUnion` to destroy. This function does nothing if `tu` is 
  *        NULL`.
  */
-void cap_tu_destroy(TypedUnion * tu) {
-    if (!tu) return;
-    if (tu -> mType != DT_STRING) {
-        return;
-    }
-    free(tu -> mValue.asString);
-    tu -> mValue.asString = NULL;
-}
+void cap_tu_destroy(TypedUnion * tu);
 
 // ============================================================================
 // === TYPED UNION CHECKS =====================================================
@@ -76,30 +119,22 @@ void cap_tu_destroy(TypedUnion * tu) {
 /**
  * Checks if `tu` has type `DT_DOUBLE`.
  */
-bool cap_tu_is_double(const TypedUnion * tu) {
-    return tu -> mType == DT_DOUBLE;
-}
+bool cap_tu_is_double(const TypedUnion * tu);
 
 /**
  * Checks if `tu` has type `DT_INT`.
  */
-bool cap_tu_is_int(const TypedUnion * tu) {
-    return tu -> mType == DT_INT;
-}
+bool cap_tu_is_int(const TypedUnion * tu);
 
 /**
  * Checks if `tu` has type `DT_PRESENCE`.
  */
-bool cap_tu_is_presence(const TypedUnion * tu) {
-    return tu -> mType == DT_PRESENCE;
-}
+bool cap_tu_is_presence(const TypedUnion * tu);
 
 /**
  * Checks if `tu` has type `DT_STRING`.
  */
-bool cap_tu_is_string(const TypedUnion * tu) {
-    return tu -> mType == DT_STRING;
-}
+bool cap_tu_is_string(const TypedUnion * tu);
 
 // ============================================================================
 // === TYPED UNION CONVERSIONS ================================================
@@ -112,10 +147,7 @@ bool cap_tu_is_string(const TypedUnion * tu) {
  *        The type is checked using an `assert` statement.
  * @return `double` value stored int `tu`
  */
-double cap_tu_as_double(const TypedUnion * tu) {
-    assert(tu -> mType == DT_DOUBLE);
-    return tu -> mValue.asDouble;
-}
+double cap_tu_as_double(const TypedUnion * tu);
 
 /**
  * Retrieves an `int` value.
@@ -124,10 +156,7 @@ double cap_tu_as_double(const TypedUnion * tu) {
  *        The type is checked using an `assert` statement.
  * @return `int` value stored int `tu`
  */
-int cap_tu_as_int(const TypedUnion * tu) {
-    assert(tu -> mType == DT_INT);
-    return tu -> mValue.asInt;
-}
+int cap_tu_as_int(const TypedUnion * tu);
 
 /**
  * Retrieves a string value.
@@ -141,9 +170,18 @@ int cap_tu_as_int(const TypedUnion * tu) {
  *        `DT_STRING`. The type is checked using an `assert` statement.
  * @return Pointer to the string stored in `tu`.
  */
-const char * cap_tu_as_string(const TypedUnion * tu) {
-    assert(tu -> mType == DT_STRING);
-    return tu -> mValue.asString;
-}
+const char * cap_tu_as_string(const TypedUnion * tu);
+
+/**
+ * Get an string representation of type.
+ *
+ * Returns a null-terminated string representing the given data type. If 
+ * DT_PRESENCE is given, returns NULL instead. This should be used in help and
+ * usage messages.
+ *
+ * @param type data type to display
+ * @return string representation of the type, or NULL if type is  DT_PRESENCE 
+ */
+const char * cap_type_metavar(DataType type);
 
 #endif
