@@ -67,6 +67,8 @@ static bool _cap_parse_word_as_type(
     const char * word, DataType type, TypedUnion * uninitialized_tu);
 static FlagInfo * _cap_parser_find_flag(
     const ArgumentParser * parser, const char * flag);
+static bool _cap_flag_matches_name_or_alias(
+    const FlagInfo * flag_info, const char * name_or_alias);
 
 static OnePositionalParsingResult _cap_parser_parse_one_positional(
     const ArgumentParser * parser, const char * arg, 
@@ -541,6 +543,55 @@ void cap_parser_add_flag(
 }
 
 /**
+ * Creates an alias for an existing flag.
+ * 
+ * Adds a new flag to the parser which functions as an alias for an existing 
+ * flag. When parsing, this alias is parsed the same way as the original flag,
+ * and any value parsed for the alias is stored with the original flag's name
+ * (not under the alias.)
+ * 
+ * @param parser object to configure
+ * @param name original flag name. Must be an existing flag.
+ * @param alias alias for 'name'. Must be a new, unique flag name.
+ */
+void cap_parser_add_flag_alias(
+    ArgumentParser * parser, const char * name, const char * alias) 
+{
+    if (!parser) {
+        fprintf(stderr, "cap: missing parser\n");
+        exit(-1);
+    }
+    if (!name || !strlen(name)) {
+        fprintf(stderr, "cap: missing flag name\n");
+        exit(-1);
+    }
+    if (!alias || !strlen(alias)) {
+        fprintf(stderr, "cap: missing flag alias\n");
+        exit(-1);
+    }
+    FlagInfo * fi = _cap_parser_find_flag(parser, name);
+    if (!fi) {
+        fprintf(
+            stderr, "cap: flag '%s' does not exist, cannot set alias for it\n",
+            name);
+        exit(-1);
+    }
+    if (_cap_parser_find_flag(parser, alias)) {
+        fprintf(
+            stderr, "cap: cannot set alias '%s', this flag already exists\n",
+            alias);
+        exit(-1);
+    }
+
+    // register the alias
+    if (fi -> mAliasCount >= fi -> mAliasAlloc) {
+        fi -> mAliasAlloc = fi -> mAliasAlloc ? 2 * fi -> mAliasAlloc : 1u;
+        fi -> mAliases = (char **) realloc(fi -> mAliases, fi -> mAliasAlloc * sizeof(char *));
+    }
+    fi -> mAliases[fi -> mAliasCount++] = copy_string(alias);
+}
+
+/**
  * Sets a flag for displaying help.
  * 
  * Sets a flag that makes the program immediately display help information 
@@ -1000,24 +1051,38 @@ static bool _cap_parse_word_as_type(
 
 static FlagInfo * _cap_parser_find_flag(
         const ArgumentParser * parser, const char * flag) {
-    if (
-            parser -> mHelpFlagInfo 
-	    && !strcmp(flag, parser -> mHelpFlagInfo -> mName)) {
+    if (parser -> mHelpFlagInfo 
+    	    && _cap_flag_matches_name_or_alias(parser -> mHelpFlagInfo, flag)) {
         return parser -> mHelpFlagInfo;
     }
-    if (
-            parser -> mFlagSeparatorInfo 
-	    && !strcmp(flag, parser -> mFlagSeparatorInfo -> mName)) {
+    if (parser -> mFlagSeparatorInfo 
+	        && _cap_flag_matches_name_or_alias(
+                parser -> mFlagSeparatorInfo, flag)) {
         return parser -> mFlagSeparatorInfo;
     }
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
         FlagInfo * fi = parser -> mFlags[i];
-        if (!strcmp(flag, fi -> mName)) {
+        if (_cap_flag_matches_name_or_alias(fi, flag)) {
             return fi;
         }
     }
     return NULL;
 }
+
+static bool _cap_flag_matches_name_or_alias(
+    const FlagInfo * flag_info, const char * name_or_alias) 
+{
+    if (!strcmp(name_or_alias, flag_info -> mName)) {
+        return true;
+    }
+    for (size_t j = 0; j < flag_info -> mAliasCount; ++j) {
+        if (!strcmp(name_or_alias, flag_info -> mAliases[j])) {
+            return true;
+        }
+    }
+    return false;
+}
+
 
 
 static OnePositionalParsingResult _cap_parser_parse_one_positional(
@@ -1101,32 +1166,32 @@ static void _cap_parser_parse_flags_and_positionals(
         const char * arg = argv[index];
 
         if (positional_only || !strlen(arg) 
-		|| !strchr(parser -> mFlagPrefixChars, arg[0])) {
+		        || !strchr(parser -> mFlagPrefixChars, arg[0])) {
             // positional
-	    OnePositionalParsingResult one_posit_res = 
-		_cap_parser_parse_one_positional(parser, arg, positional_index);
-	    const PositionalInfo * posit_info = one_posit_res.mPositional;
-	    switch (one_posit_res.mError) {
-		case OPPE_NO_ERROR:
-		    break;
-		case OPPE_TOO_MANY:
-		    result -> mError = PER_TOO_MANY_POSITIONALS;
-		    return;
-		case OPPE_CANNOT_PARSE:
-		    result -> mError = PER_CANNOT_PARSE_POSITIONAL;
-		    result -> mFirstErrorWord = posit_info -> mName;
-		    result -> mSecondErrorWord = arg;
-		    return;
-		default:
-		    assert(
-		        false && "unreachable in "
-			"_cap_parser_parse_flags_and_positionals");
-	    }
+            OnePositionalParsingResult one_posit_res = 
+                _cap_parser_parse_one_positional(parser, arg, positional_index);
+            const PositionalInfo * posit_info = one_posit_res.mPositional;
+            switch (one_posit_res.mError) {
+                case OPPE_NO_ERROR:
+                    break;
+                case OPPE_TOO_MANY:
+                    result -> mError = PER_TOO_MANY_POSITIONALS;
+                    return;
+                case OPPE_CANNOT_PARSE:
+                    result -> mError = PER_CANNOT_PARSE_POSITIONAL;
+                    result -> mFirstErrorWord = posit_info -> mName;
+                    result -> mSecondErrorWord = arg;
+                    return;
+                default:
+                    assert(
+                        false && "unreachable in "
+                        "_cap_parser_parse_flags_and_positionals");
+            }
             cap_pa_set_positional(
                 result -> mArguments, posit_info -> mName, 
-		one_posit_res.mValue);
+            one_posit_res.mValue);
             ++positional_index;
-	    index += one_posit_res.mWordsConsumed;
+            index += one_posit_res.mWordsConsumed;
             continue;
         }
 	
@@ -1138,31 +1203,31 @@ static void _cap_parser_parse_flags_and_positionals(
 	    case OFPE_NO_ERROR:
 	       	break;
 	    case OFPE_UNKNOWN_FLAG:
-		result -> mError = PER_UNKNOWN_FLAG;
-		result -> mFirstErrorWord = arg;
-		return;
+            result -> mError = PER_UNKNOWN_FLAG;
+            result -> mFirstErrorWord = arg;
+            return;
 	    case OFPE_MISSING_FLAG_VALUE:
-		result -> mError = PER_MISSING_FLAG_VALUE;
-		result -> mFirstErrorWord = one_flag_res.mFlag -> mName;
-		return;
+            result -> mError = PER_MISSING_FLAG_VALUE;
+            result -> mFirstErrorWord = one_flag_res.mFlag -> mName;
+            return;
 	    case OFPE_CANNOT_PARSE_FLAG:
-		result -> mError = PER_CANNOT_PARSE_FLAG;
-		result -> mFirstErrorWord = one_flag_res.mFlag -> mName;
-		result -> mSecondErrorWord 
-		    = argv[index + one_flag_res.mWordsConsumed];
-		return;
+            result -> mError = PER_CANNOT_PARSE_FLAG;
+            result -> mFirstErrorWord = one_flag_res.mFlag -> mName;
+            result -> mSecondErrorWord 
+                = argv[index + one_flag_res.mWordsConsumed];
+            return;
 	    default:
-                assert(false && "unreachable in cap_parser_parse_noexit");
+            assert(false && "unreachable in cap_parser_parse_noexit");
 	}
 	index += one_flag_res.mWordsConsumed;
         if (parsed_flag == parser -> mFlagSeparatorInfo) {
-	    // switch to positional-only mode
-	    positional_only = true;
+            // switch to positional-only mode
+            positional_only = true;
             continue;
         }
         if (parsed_flag == parser -> mHelpFlagInfo) {
             result -> mError = PER_HELP;
-	    return;
+            return;
         }
 	// normal flag -> add its value to parsed_arguments
 	cap_pa_add_flag(

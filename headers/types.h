@@ -167,6 +167,9 @@ typedef struct {
     DataType mType;
     int mMinCount;
     int mMaxCount;
+    char ** mAliases;
+    size_t mAliasCount;
+    size_t mAliasAlloc;
 } FlagInfo;
 
 /**

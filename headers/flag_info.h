@@ -63,7 +63,10 @@ static FlagInfo * cap_flag_info_make(
 	.mDescription = copy_string(description),
         .mType = type,
         .mMinCount = min_count,
-        .mMaxCount = max_count	
+        .mMaxCount = max_count,
+        .mAliases = NULL,
+        .mAliasCount = 0,
+        .mAliasAlloc = 0
     };
     return info;
 }
@@ -83,6 +86,11 @@ static void cap_flag_info_destroy(FlagInfo * info) {
     delete_string_property(&(info -> mName));
     delete_string_property(&(info -> mMetaVar));
     delete_string_property(&(info -> mDescription));
+    for (size_t i = 0u; i < info -> mAliasCount; ++i) {
+        delete_string_property(info -> mAliases + i);
+    }
+    free(info -> mAliases);
+    info -> mAliases = NULL;
     free(info);
 }
 
