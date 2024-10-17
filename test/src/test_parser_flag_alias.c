@@ -245,11 +245,428 @@ bool test_flags_and_aliases() {
     return !failed;
 }
 
+/**
+ * Set up custom flag prefix characters and create a flag with them.
+ * Then, create an alias that begins with one of the prefix characters.
+ */
+bool test_custom_flag_prefix_1() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_set_flag_prefix(p, "/");
+    const char * const x_flag = "/X";
+    const char * const z_flag = "/Z";
+    cap_parser_add_flag(p, x_flag, DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, x_flag, z_flag);
+
+    bool failed = false;
+    ParsedArguments * pa = NULL;
+    do {
+        const char * args[4] = {"prog", z_flag, x_flag, z_flag};
+        ParsingResult res = cap_parser_parse_noexit(p, 4, args);
+        pa = res.mArguments;
+        if (res.mError != PER_NO_ERROR) FB(failed);
+        if (!cap_pa_has_flag(pa, x_flag)) FB(failed);
+        if (cap_pa_flag_count(pa, x_flag) != 3u) FB(failed);
+        for (size_t i = 0u; i < 3u; ++i) {
+            const TypedUnion * tu = cap_pa_get_flag_i(pa, x_flag, i);
+            if (!tu) FB(failed);
+            if (!cap_tu_is_presence(tu)) FB(failed);
+        }
+    } while(false);
+    cap_parser_destroy(p);
+    cap_pa_destroy(pa);
+    return !failed;
+}
+
+/**
+ * Set up custom flag prefix characters and create a flag with them.
+ * Then, create an alias that begins with one of the prefix characters.
+ */
+bool test_custom_flag_prefix_2() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_set_flag_prefix(p, "-+");
+    const char * const x_flag = "+X";
+    const char * const z_flag = "-Z";
+    cap_parser_add_flag(p, x_flag, DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, x_flag, z_flag);
+
+    bool failed = false;
+    ParsedArguments * pa = NULL;
+    do {
+        const char * args[4] = {"prog", z_flag, x_flag, z_flag};
+        ParsingResult res = cap_parser_parse_noexit(p, 4, args);
+        pa = res.mArguments;
+        if (res.mError != PER_NO_ERROR) FB(failed);
+        if (!cap_pa_has_flag(pa, x_flag)) FB(failed);
+        if (cap_pa_flag_count(pa, x_flag) != 3u) FB(failed);
+        for (size_t i = 0u; i < 3u; ++i) {
+            const TypedUnion * tu = cap_pa_get_flag_i(pa, x_flag, i);
+            if (!tu) FB(failed);
+            if (!cap_tu_is_presence(tu)) FB(failed);
+        }
+    } while(false);
+    cap_parser_destroy(p);
+    cap_pa_destroy(pa);
+    return !failed;
+}
+
+/**
+ * Set up custom flag prefix characters and create a flag with them.
+ * Then, try to create an alias with the wrong prefix character. This should 
+ * fail with AFAE_INVALID_PREFIX.
+ */
+bool test_custom_flag_prefix_3() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_set_flag_prefix(p, "+");  // notice it is only +, unlike previous test
+    const char * const x_flag = "+X";
+    const char * const z_flag = "-Z";
+    cap_parser_add_flag(p, x_flag, DT_PRESENCE, 0, -1, NULL, NULL);
+
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, x_flag, z_flag);
+        if (e == AFAE_OK) FB(failed);
+        if (e != AFAE_INVALID_PREFIX) FB(failed);
+    } while(false);
+    return !failed;
+}
+
+/**
+ * Try to add a flag alias without giving a parser. This should fail with 
+ * AFAE_MISSING_PARSER.
+ */
+bool test_invalid_alias_1() {
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(NULL, "-x", "--xyz");
+        if (e != AFAE_MISSING_PARSER) FB(failed);
+    } while(false);
+    return !failed;
+}
+
+/**
+ * Try to add a flag alias without giving a flag name. This should fail with 
+ * AFAE_MISSING_NAME.
+ */
+bool test_invalid_alias_2() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, -1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, NULL, "--xyz");
+        if (e != AFAE_MISSING_NAME) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to add a flag alias with an empty flag name. This should fail with 
+ * AFAE_MISSING_NAME.
+ */
+bool test_invalid_alias_2x() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, -1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "", "--xyz");
+        if (e != AFAE_MISSING_NAME) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create NULL flag alias. This should fail with AFAE_MISSING_ALIAS.
+ */
+bool test_invalid_alias_3() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, -1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", NULL);
+        if (e != AFAE_MISSING_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an empty flag alias. This should fail with AFAE_MISSING_ALIAS.
+ */
+bool test_invalid_alias_3x() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", "");
+        if (e != AFAE_MISSING_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias for a flag which does not exist. This should fail 
+ * with AFAE_FLAG_DOES_NOT_EXIST.
+ */
+bool test_invalid_alias_4() {
+    ArgumentParser * p = cap_parser_make_empty();
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", "-A");
+        if (e != AFAE_FLAG_DOES_NOT_EXIST) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias for a flag which does not exist. This should fail 
+ * with AFAE_FLAG_DOES_NOT_EXIST.
+ */
+bool test_invalid_alias_4x() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-y", "-A");
+        if (e != AFAE_FLAG_DOES_NOT_EXIST) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias for a flag using the flag's name. This 
+ * should fail with AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_1() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", "-x");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias for a flag with the flag's name. This 
+ * should fail with AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_2() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(p, "-y", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-y", "-y");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias when a flag with the same name already exists. This 
+ * should fail with AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_3() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(p, "-y", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", "-y");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias when a flag with the same name already exists. This 
+ * should fail with AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_4() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(p, "-y", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-y", "-x");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias when another alias for the same flag with the same 
+ * name exists. This should fail with AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_5() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", "-y");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "-x", "-y");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias when another alias for the same flag with the same 
+ * name exists. This should fail with AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_6() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", "-y");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "-x", "-z");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "-x", "-y");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias when another alias for the same flag with the same 
+ * name exists. This should fail with AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_7() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", "-y");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "-x", "-z");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "-x", "-z");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to create an alias when an alias for a different flag with the same
+ * name exists. This should fail with AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_8() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(p, "--something", DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-x", "--xyz");
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "--something", "-s");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "--something", "--xyz");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Create several valid aliases for several flags. Then, try to create an 
+ * alias when an alias for a different flag with the same name exists. This 
+ * should fail with AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_9() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    cap_parser_add_flag(p, "--something", DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag(p, "--all", DT_PRESENCE, 0, 1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-x", "--xyz");
+    cap_parser_add_flag_alias(p, "--all", "-all");
+    cap_parser_add_flag_alias(p, "--all", "-a");
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "--something", "-s");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "--something", "-ss");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "--something", "-sss");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "--something", "-ssss");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "--something", "---all");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "--something", "--XYZ");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "-x", "-xyz");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "-x", "--alllllllllll");
+        if (e != AFAE_OK) FB(failed);
+        e = cap_parser_add_flag_alias_noexit(p, "-x", "-a");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to add an alias that matches the flag separator. This should fail with 
+ * AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_10() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_set_flag_separator(p, "-++-", NULL);
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", "-++-");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Try to add an alias that matches the help flag. This should fail with 
+ * AFAE_DUPLICATE_ALIAS.
+ */
+bool test_invalid_alias_5_11() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_set_help_flag(p, "-h", NULL);
+    cap_parser_add_flag(p, "-x", DT_PRESENCE, 0, 1, NULL, NULL);
+    bool failed = false;
+    do {
+        AddFlagAliasError e = cap_parser_add_flag_alias_noexit(p, "-x", "-h");
+        if (e != AFAE_DUPLICATE_ALIAS) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
 int main() {
-    bool a;
+    bool a, b, c;
     a = TEST_GROUP(
-        "parser-flag-alias", false, false, test_flag_with_alias_1,
+        "p-flag-alias", false, false, test_flag_with_alias_1,
         test_flag_with_alias_2, test_flag_with_alias_3, test_flag_with_alias_4,
         test_flags_and_aliases);
-    return a ? 0 : 1;
+    b = TEST_GROUP(
+        "p-flag-alias-prefix", false, false, test_custom_flag_prefix_1,
+        test_custom_flag_prefix_2, test_custom_flag_prefix_3);
+    c = TEST_GROUP(
+        "p-flag-alias-errors", false, false, test_invalid_alias_1, 
+        test_invalid_alias_2, test_invalid_alias_2x, test_invalid_alias_3,
+        test_invalid_alias_3x, test_invalid_alias_4, test_invalid_alias_4x,
+        test_invalid_alias_5_1, test_invalid_alias_5_2, test_invalid_alias_5_3, test_invalid_alias_5_4, test_invalid_alias_5_5, test_invalid_alias_5_6, test_invalid_alias_5_7, test_invalid_alias_5_8, test_invalid_alias_5_9, 
+        test_invalid_alias_5_10, test_invalid_alias_5_11);
+    return a && b && c ? 0 : 1;
 }
