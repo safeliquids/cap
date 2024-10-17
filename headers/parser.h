@@ -1376,11 +1376,11 @@ static void _cap_parser_parse_flags_and_positionals(
             return;
 	    case OFPE_MISSING_FLAG_VALUE:
             result -> mError = PER_MISSING_FLAG_VALUE;
-            result -> mFirstErrorWord = one_flag_res.mFlag -> mName;
+            result -> mFirstErrorWord = arg;
             return;
 	    case OFPE_CANNOT_PARSE_FLAG:
             result -> mError = PER_CANNOT_PARSE_FLAG;
-            result -> mFirstErrorWord = one_flag_res.mFlag -> mName;
+            result -> mFirstErrorWord = arg;
             result -> mSecondErrorWord 
                 = argv[index + one_flag_res.mWordsConsumed];
             return;
