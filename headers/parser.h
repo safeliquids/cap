@@ -69,6 +69,7 @@ static FlagInfo * _cap_parser_find_flag(
     const ArgumentParser * parser, const char * flag);
 static bool _cap_flag_matches_name_or_alias(
     const FlagInfo * flag_info, const char * name_or_alias);
+static const char * _cap_get_shortest_flag_name(const FlagInfo * flag_info);
 
 static OnePositionalParsingResult _cap_parser_parse_one_positional(
     const ArgumentParser * parser, const char * arg, 
@@ -760,7 +761,7 @@ const char * cap_parser_get_program_name(
  * Prints a usage string.
  * 
  * Prints a usage string to `file` based on the flags and arguments configured
- * in `parser`.
+ * in `parser`. If a flag has aliases, the shortest available name is picked.
  */
 void cap_parser_print_usage(
         const ArgumentParser * parser, FILE * file,
@@ -782,7 +783,7 @@ void cap_parser_print_usage(
     fprintf(file, "%s", cap_parser_get_program_name(parser, argv0));
 
     if (parser -> mHelpFlagInfo) {
-        fprintf(file, " [%s]", parser -> mHelpFlagInfo -> mName);
+        fprintf(file, " [%s]", _cap_get_shortest_flag_name(parser -> mHelpFlagInfo));
     }
 
     for (size_t i = 0; i < parser -> mFlagCount; ++i) {
@@ -791,7 +792,7 @@ void cap_parser_print_usage(
         if (fi -> mMinCount == 0) {
             fputc('[', file);
         }
-        fprintf(file, "%s", fi -> mName);
+        fprintf(file, "%s", _cap_get_shortest_flag_name(fi));
         if (fi -> mType != DT_PRESENCE) {
             fprintf(file, " %s", cap_get_flag_metavar(fi));
         }
@@ -801,7 +802,7 @@ void cap_parser_print_usage(
     }
 
     if (parser -> mPositionalCount > 0u && parser -> mFlagSeparatorInfo) {
-        fprintf(file, " [%s]", parser -> mFlagSeparatorInfo -> mName);
+        fprintf(file, " [%s]", _cap_get_shortest_flag_name(parser -> mFlagSeparatorInfo));
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         const PositionalInfo * pi = parser -> mPositionals[i];
@@ -1083,7 +1084,19 @@ static bool _cap_flag_matches_name_or_alias(
     return false;
 }
 
-
+static const char * _cap_get_shortest_flag_name(const FlagInfo * flag_info) {
+    const char * shortest = flag_info -> mName;
+    size_t shortest_length = strlen(shortest);
+    for (size_t i = 0; i < flag_info -> mAliasCount; ++i) {
+        size_t len = strlen(flag_info -> mAliases[i]);
+        if (len >= shortest_length) {
+            continue;
+        }
+        shortest = flag_info -> mAliases[i];
+        shortest_length = len;
+    }
+    return shortest;
+}
 
 static OnePositionalParsingResult _cap_parser_parse_one_positional(
         const ArgumentParser * parser, const char * arg, 

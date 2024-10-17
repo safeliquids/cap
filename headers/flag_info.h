@@ -104,14 +104,14 @@ static void cap_flag_info_destroy(FlagInfo * info) {
  * @flag object to display
  */
 static void cap_print_flag_info(FILE * file, const FlagInfo * flag) {
-    fprintf(file, "\t%s", flag -> mName);
-    if (flag -> mType != DT_PRESENCE) {
-        fprintf(file, " %s", cap_get_flag_metavar(flag));
+    const char * metavar = flag -> mType == DT_PRESENCE ? NULL : cap_get_flag_metavar(flag);
+    fprintf(file, "%s %s\n", flag -> mName, metavar ? metavar : "");
+    for (size_t i = 0u; i < flag -> mAliasCount; ++i) {
+        fprintf(file, "%s %s\n", flag -> mAliases[i], metavar ? metavar : "");
     }
     if (flag -> mDescription) {
-        fprintf(file, "\t%s", flag -> mDescription);
+        fprintf(file, "\t%s\n", flag -> mDescription);
     }
-    fputc('\n', file);
 }
 
 #endif

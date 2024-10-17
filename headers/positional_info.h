@@ -88,11 +88,10 @@ void cap_positional_info_destroy(PositionalInfo * info) {
  */
 void cap_print_positional_info(
         FILE * file, const PositionalInfo * info) {
-    fprintf(file, "\t%s", cap_get_posit_metavar(info));
+    fprintf(file, "%s\n", cap_get_posit_metavar(info));
     if (info -> mDescription) {
-        fprintf(file, "\t%s", info -> mDescription);
+        fprintf(file, "\t%s\n", info -> mDescription);
     }
-    fputc('\n', file);
 }
 
 #endif
