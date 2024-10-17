@@ -19,3 +19,14 @@ jobs:
       run: make test
     - name: clean
       run: make clean
+      
+  make-test-win:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: build
+      run: make all
+    - name: test-everything
+      run: make test
+    - name: clean
+      run: make clean
