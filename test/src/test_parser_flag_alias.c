@@ -173,6 +173,7 @@ bool test_flag_with_alias_4() {
             if (!cap_tu_is_string(tu)) FB(failed);
             if (strcmp(cap_tu_as_string(tu), expected_files[i])) FB(failed);
         }
+        if (failed) break;
     } while(false);
 
     if (pa) {
@@ -235,6 +236,7 @@ bool test_flags_and_aliases() {
             if (!cap_tu_is_int(tu)) FB(failed);
             if (cap_tu_as_int(tu) != expected_numbers[i]) FB(failed);
         }
+        if (failed) break;
     } while(false);
 
     if (pa) {
@@ -271,6 +273,7 @@ bool test_custom_flag_prefix_1() {
             if (!tu) FB(failed);
             if (!cap_tu_is_presence(tu)) FB(failed);
         }
+        if (failed) break;
     } while(false);
     cap_parser_destroy(p);
     cap_pa_destroy(pa);
@@ -303,6 +306,7 @@ bool test_custom_flag_prefix_2() {
             if (!tu) FB(failed);
             if (!cap_tu_is_presence(tu)) FB(failed);
         }
+        if (failed) break;
     } while(false);
     cap_parser_destroy(p);
     cap_pa_destroy(pa);
@@ -327,6 +331,68 @@ bool test_custom_flag_prefix_3() {
         if (e == AFAE_OK) FB(failed);
         if (e != AFAE_INVALID_PREFIX) FB(failed);
     } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Set up custom flag prefix characters and create a flag with them.
+ * Then create an alias that differs from the flag with only the prefix.
+ * This should succeed.
+ */
+bool test_custom_flag_prefix_4() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_set_flag_prefix(p, "+-");
+    const char * const x_flag = "+X";
+    const char * const alias = "-X";
+    cap_parser_add_flag(p, x_flag, DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, x_flag, alias);
+    cap_parser_destroy(p);
+    return true;
+}
+
+/**
+ * Set up custom flag prefix characters. Create a flag and an alias. Then 
+ * create another flag and an alias for it which only differs from the other 
+ * flag's alias with the prefix. This should succeed.
+ * 
+ * Then, try to parse some arguments using the aliases. This should parse
+ * each of them correctly, by assigning values to the correct flag.
+ */
+bool test_custom_flag_prefix_5() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_set_flag_prefix(p, "+-");
+    const char * const x_flag = "+X";
+    const char * const z_flag = "+Z";
+    const char * const x_alias = "-XALIAS";
+    const char * const z_alias = "+XALIAS";
+    cap_parser_add_flag(p, x_flag, DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, x_flag, x_alias);
+    cap_parser_add_flag(p, z_flag, DT_DOUBLE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, z_flag, z_alias);
+
+    const char * args[6] = {"prog", z_alias, "3.14", x_alias, z_alias, "10"};
+    bool failed = false;
+    ParsedArguments * pa = NULL;
+    do {
+        ParsingResult res = cap_parser_parse_noexit(p, 6, args);
+        pa = res.mArguments;
+        if (res.mError != PER_NO_ERROR) FB(failed);
+        if (!cap_pa_has_flag(pa, x_flag)) FB(failed);
+        if (cap_pa_flag_count(pa, x_flag) != 1u) FB(failed);
+
+        if (cap_pa_flag_count(pa, z_flag) != 2u) FB(failed);
+        const double expected_numbers[2] = {3.14, 10};
+        for (size_t i = 0; i < 2u; ++i) {
+            const TypedUnion * tu = cap_pa_get_flag_i(pa, z_flag, i);
+            if (!tu) FB(failed);
+            if (!cap_tu_is_double(tu)) FB(failed);
+            if (cap_tu_as_double(tu) != expected_numbers[i]) FB(failed);
+        }
+        if (failed) break;
+    } while(false);
+    cap_parser_destroy(p);
+    cap_pa_destroy(pa);
     return !failed;
 }
 
@@ -653,6 +719,135 @@ bool test_invalid_alias_5_11() {
     return !failed;
 }
 
+/**
+ * Create a falg and an alias for it. Then, create another flag. This should 
+ * all succeed.
+ */
+bool test_add_flags_after_alias_1() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-a", DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-a", "-A");
+
+    cap_parser_add_flag(p, "-b", DT_DOUBLE, 0, 1, NULL, NULL);
+    return true;
+}
+
+/**
+ * Create a falg and an alias for it and, create another flag. After that
+ * parse some arguments using the alias and the second flag. This should
+ * succeed.
+ */
+bool test_add_flags_after_alias_2() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-a", DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-a", "-A");
+    cap_parser_add_flag(p, "-b", DT_DOUBLE, 0, 1, NULL, NULL);
+    bool failed = false;
+    ParsedArguments * pa = NULL;
+    const char * args[4] = {"prog", "-b", "3.14", "-A"};
+    do {
+        ParsingResult res = cap_parser_parse_noexit(p, 4, args);
+        pa = res.mArguments;
+        if (res.mError != PER_NO_ERROR) FB(failed);
+        if (!cap_pa_has_flag(pa, "-a")) FB(failed);
+        if (!cap_pa_has_flag(pa, "-b")) FB(failed);
+        if (cap_tu_is_double(cap_pa_get_flag(pa, "-b"))) FB(failed);
+        if (cap_tu_as_double(cap_pa_get_flag(pa, "-b")) != 3.14) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    cap_pa_destroy(pa);
+    return !failed;
+}
+
+/**
+ * Create a falg and an alias for it and, create another flag and an alias for
+ * it as well. After that parse some arguments using the aliases. This should
+ * succeed.
+ */
+bool test_add_flags_after_alias_3() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-a", DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-a", "-A");
+    cap_parser_add_flag(p, "-b", DT_DOUBLE, 0, 1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-b", "-B");
+    bool failed = false;
+    ParsedArguments * pa = NULL;
+    const char * args[4] = {"prog", "-B", "3.14", "-A"};
+    do {
+        ParsingResult res = cap_parser_parse_noexit(p, 4, args);
+        pa = res.mArguments;
+        if (res.mError != PER_NO_ERROR) FB(failed);
+        if (!cap_pa_has_flag(pa, "-a")) FB(failed);
+        if (!cap_pa_has_flag(pa, "-b")) FB(failed);
+        if (cap_tu_is_double(cap_pa_get_flag(pa, "-b"))) FB(failed);
+        if (cap_tu_as_double(cap_pa_get_flag(pa, "-b")) != 3.14) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    cap_pa_destroy(pa);
+    return !failed;
+}
+
+/**
+ * Create a falg and an alias for it. Then try to create another flag with the
+ * same name as the alias. This should fail with AFE_DUPLICATE_FLAG.
+ */
+bool test_add_flags_after_alias_4() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-a", DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-a", "-A");
+
+    bool failed = false;
+    do {
+        AddFlagError e = cap_parser_add_flag_noexit(p, "-A", DT_DOUBLE, 0, 1, NULL, NULL);
+        if (e != AFE_DUPLICATE) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Create two flags and aliases for them. Then try to create another flag with 
+ * the same name as one of the aliases. This should fail with 
+ * AFE_DUPLICATE_FLAG.
+ */
+bool test_add_flags_after_alias_5() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-a", DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-a", "-A");
+    cap_parser_add_flag(p, "-b", DT_DOUBLE, 0, 1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-b", "-B");
+
+    bool failed = false;
+    do {
+        AddFlagError e = cap_parser_add_flag_noexit(p, "-A", DT_DOUBLE, 0, 1, NULL, NULL);
+        if (e != AFE_DUPLICATE) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
+/**
+ * Create two flags and aliases for them. Then try to create another flag with 
+ * the same name as one of the aliases. This should fail with 
+ * AFE_DUPLICATE_FLAG.
+ */
+bool test_add_flags_after_alias_6() {
+    ArgumentParser * p = cap_parser_make_empty();
+    cap_parser_add_flag(p, "-a", DT_PRESENCE, 0, -1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-a", "-A");
+    cap_parser_add_flag(p, "-b", DT_DOUBLE, 0, 1, NULL, NULL);
+    cap_parser_add_flag_alias(p, "-b", "-B");
+    cap_parser_add_flag_alias(p, "-b", "--eeeee");
+
+    bool failed = false;
+    do {
+        AddFlagError e = cap_parser_add_flag_noexit(p, "--eeeee", DT_DOUBLE, 0, 1, NULL, NULL);
+        if (e != AFE_DUPLICATE) FB(failed);
+    } while(false);
+    cap_parser_destroy(p);
+    return !failed;
+}
+
 int main() {
     bool a, b, c;
     a = TEST_GROUP(
@@ -661,12 +856,15 @@ int main() {
         test_flags_and_aliases);
     b = TEST_GROUP(
         "p-flag-alias-prefix", false, false, test_custom_flag_prefix_1,
-        test_custom_flag_prefix_2, test_custom_flag_prefix_3);
+        test_custom_flag_prefix_2, test_custom_flag_prefix_3,
+        test_custom_flag_prefix_4, test_custom_flag_prefix_5);
     c = TEST_GROUP(
         "p-flag-alias-errors", false, false, test_invalid_alias_1, 
         test_invalid_alias_2, test_invalid_alias_2x, test_invalid_alias_3,
         test_invalid_alias_3x, test_invalid_alias_4, test_invalid_alias_4x,
-        test_invalid_alias_5_1, test_invalid_alias_5_2, test_invalid_alias_5_3, test_invalid_alias_5_4, test_invalid_alias_5_5, test_invalid_alias_5_6, test_invalid_alias_5_7, test_invalid_alias_5_8, test_invalid_alias_5_9, 
+        test_invalid_alias_5_1, test_invalid_alias_5_2, test_invalid_alias_5_3,
+        test_invalid_alias_5_4, test_invalid_alias_5_5, test_invalid_alias_5_6,
+        test_invalid_alias_5_7, test_invalid_alias_5_8, test_invalid_alias_5_9, 
         test_invalid_alias_5_10, test_invalid_alias_5_11);
     return a && b && c ? 0 : 1;
 }
