@@ -180,6 +180,7 @@ typedef struct {
     char * mMetaVar;
     char * mDescription;
     DataType mType;
+    bool mRequired;
 } PositionalInfo;
 
 /**
