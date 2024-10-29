@@ -1042,13 +1042,22 @@ void cap_parser_print_usage(
     if (parser -> mPositionalCount > 0u && parser -> mFlagSeparatorInfo) {
         fprintf(file, " [%s]", _cap_get_shortest_flag_name(parser -> mFlagSeparatorInfo));
     }
+    size_t optionals = 0u;
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         const PositionalInfo * pi = parser -> mPositionals[i];
+        fputc(' ', file);
+        if (!pi -> mRequired) {
+            fputc('[', file);
+            ++optionals;
+        }
         if (pi -> mMetaVar) {
-            fprintf(file, " %s", pi -> mMetaVar);
+            fprintf(file, "%s", pi -> mMetaVar);
             continue;
         }
-        fprintf(file, " <%s>", pi -> mName);
+        fprintf(file, "<%s>", pi -> mName);
+    }
+    for (size_t i = 0; i < optionals; ++i) {
+        fputc(']', file);
     }
     fputc('\n', file);
 }
@@ -1083,7 +1092,7 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
     if (parser -> mDescription) {
         fprintf(file, "%s\n", parser -> mDescription);
     }
-    if (parser -> mFlagCount) {
+    if (parser -> mFlagCount || parser -> mHelpFlagInfo || parser -> mFlagSeparatorInfo) {
         fprintf(file, "\nAvailable flags:\n");
     }
     if (parser -> mHelpFlagInfo) {
