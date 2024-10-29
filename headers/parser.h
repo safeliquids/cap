@@ -835,11 +835,10 @@ void cap_parser_set_help_flag(
  * word given on the command line cannot be parsed as that type, parsing 
  * terminates with an error.
  * 
- * If `required` is false, this argument may be omitted on the command line. If `variadic` is true the argument consumes all available words on the command line. Positional arguments are read from the command line in the same order as they were added to the parser. The following rules apply to this order:
- * 1. A required argument must not be added after an optional one.
- * 2. No argument may be added after a variadic argument.
- * 
- * These restrictions remove ambiguity at parse-time. If a required argument were added after an optional argument it would not be clear if the optional argument was omitted. Similarly, if any argument were added after a variadic argument the stopping point of the variadic argument would not be clear.
+ * If `required` is false, this argument will be configured as optional. 
+ * Required positionals may not be configured after any number of optional 
+ * ones. At parse-time, optional positionals may be missing on the command 
+ * line.
  * 
  * The `metavar` parameter specifies the display name of this argument in help 
  * and usage messages. If `NULL` is given, the argument's `name` is used 
@@ -851,8 +850,6 @@ void cap_parser_set_help_flag(
  * @param name name of the new argument
  * @param type data type of the new argument
  * @param required required-ness of the argument, see above for constraints
- * @param variadic variadicity of the argument (i.e. being able to take any 
- *        number of values), see above for constraints
  * @param metavar display name for this argument in help messages
  * @param description short description of the argument's meaning to display 
  *        in automatically generated help messages
@@ -860,7 +857,7 @@ void cap_parser_set_help_flag(
  */
 AddPositionalError cap_parser_add_positional_noexit(
     ArgumentParser * parser, const char * name, DataType type, bool required, 
-    bool variadic, const char * metavar, const char * description)
+    const char * metavar, const char * description)
 {
     if (!parser) {
         return APE_MISSING_PARSER;
@@ -911,8 +908,10 @@ AddPositionalError cap_parser_add_positional_noexit(
  * word given on the command line cannot be parsed as that type, parsing 
  * terminates with an error.
  * 
- * All positional arguments are required. If any positional arguments are 
- * missing after parsing all command line words, a parse-time error is raised.
+ * If `required` is false, this argument will be configured as optional. 
+ * Required positionals may not be configured after any number of optional 
+ * ones. At parse-time, optional positionals may be missing on the command 
+ * line.
  * 
  * The `metavar` parameter specifies the display name of this argument in help 
  * and usage messages. If `NULL` is given, the argument's `name` is used 
@@ -923,15 +922,16 @@ AddPositionalError cap_parser_add_positional_noexit(
  * @param parser object to configure
  * @param name name of the new argument
  * @param type data type of the new argument
+ * @param required if the argument is required
  * @param metavar display name for this argument in help messages
  * @param description short description of the argument's meaning to display 
  *        in automatically generated help messages
  */
 void cap_parser_add_positional(
         ArgumentParser * parser, const char * name, DataType type, 
-        const char * metavar, const char * description) {
+        bool required, const char * metavar, const char * description) {
     AddPositionalError error = cap_parser_add_positional_noexit(
-        parser, name, type,  true, false, metavar, description);
+        parser, name, type, required, metavar, description);
     switch (error) {
         case APE_DUPLICATE:
             fprintf(stderr, "cap: duplicate positional argument %s\n", name);

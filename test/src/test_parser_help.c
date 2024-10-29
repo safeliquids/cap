@@ -182,8 +182,8 @@ bool test_find_h() {
     cap_parser_add_flag(p, "--bonk", DT_PRESENCE, 0, 1, NULL, NULL);
     cap_parser_add_flag(p, "-a", DT_INT, 0, 1, NULL, NULL);
     cap_parser_add_flag(p, "-z", DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, "word", DT_STRING, NULL, NULL);
-    cap_parser_add_positional(p, "lies", DT_INT, NULL, NULL);
+    cap_parser_add_positional(p, "word", DT_STRING, true, NULL, NULL);
+    cap_parser_add_positional(p, "lies", DT_INT, true, NULL, NULL);
 
 
     const char * a[7] = {"prog", "--bonk", "-a", "100", "wordle", "-h", "bamboo"};
@@ -212,8 +212,8 @@ bool test_find_h_2() {
     cap_parser_add_flag(p, "--bonk", DT_PRESENCE, 0, 1, NULL, NULL);
     cap_parser_add_flag(p, "-a", DT_INT, 0, 1, NULL, NULL);
     cap_parser_add_flag(p, "-z", DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, "word", DT_STRING, NULL, NULL);
-    cap_parser_add_positional(p, "lies", DT_STRING, NULL, NULL);
+    cap_parser_add_positional(p, "word", DT_STRING, true, NULL, NULL);
+    cap_parser_add_positional(p, "lies", DT_STRING, true, NULL, NULL);
 
     cap_parser_set_help_flag(p, "--gelp", NULL);
 
@@ -243,8 +243,8 @@ bool test_find_h_3() {
     cap_parser_add_flag(p, "--bonk", DT_PRESENCE, 0, 1, NULL, NULL);
     cap_parser_add_flag(p, "-a", DT_INT, 0, 1, NULL, NULL);
     cap_parser_add_flag(p, "-z", DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, "word", DT_STRING, NULL, NULL);
-    cap_parser_add_positional(p, "lies", DT_STRING, NULL, NULL);
+    cap_parser_add_positional(p, "word", DT_STRING, true, NULL, NULL);
+    cap_parser_add_positional(p, "lies", DT_STRING, true, NULL, NULL);
 
     cap_parser_set_help_flag(p, "--gelp", NULL);
 

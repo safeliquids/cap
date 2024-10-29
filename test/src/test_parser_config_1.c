@@ -11,7 +11,7 @@ bool test_prefix_default_0() {
     const char * wrong = "--wrong";
     const char * word = "word";
     cap_parser_add_flag(parser, foo, DT_PRESENCE, 0, -1, NULL, NULL);
-    cap_parser_add_positional(parser, word, DT_STRING, NULL, NULL);
+    cap_parser_add_positional(parser, word, DT_STRING, true, NULL, NULL);
     const char * args[3] = {"p", foo, wrong};
 
     bool failed = false;
@@ -37,7 +37,7 @@ bool test_prefix_default_1() {
     const char * foo = "--foo";
     const char * word = "word";
     cap_parser_add_flag(parser, foo, DT_PRESENCE, 0, -1, NULL, NULL);
-    cap_parser_add_positional(parser, word, DT_STRING, NULL, NULL);
+    cap_parser_add_positional(parser, word, DT_STRING, true, NULL, NULL);
     const char * args[4] = {"p", foo, "--", foo};
 
     bool failed = false;
@@ -73,7 +73,7 @@ bool test_prefix_default_2() {
     const char * foo = "--foo";
     const char * word = "word";
     cap_parser_add_flag(parser, foo, DT_PRESENCE, 0, -1, NULL, NULL);
-    // cap_parser_add_positional(parser, word, DT_STRING, NULL, NULL);
+    // cap_parser_add_positional(parser, word, DT_STRING, true, NULL, NULL);
     const char * args[4] = {"p", foo, foo, "--"};
 
     bool failed = false;
@@ -108,7 +108,7 @@ bool test_prefix_default_3() {
     const char * foo = "--foo";
     const char * word = "word";
     cap_parser_add_flag(parser, foo, DT_PRESENCE, 0, -1, NULL, NULL);
-    cap_parser_add_positional(parser, word, DT_STRING, NULL, NULL);
+    cap_parser_add_positional(parser, word, DT_STRING, true, NULL, NULL);
     const char * args[4] = {"p", "--", foo, foo};
 
     bool failed = false;
@@ -140,8 +140,8 @@ bool test_prefix_default_4() {
 
     cap_parser_add_flag(parser, foo, DT_PRESENCE, 0, -1, NULL, NULL);
     cap_parser_add_flag(parser, bar, DT_PRESENCE, 0, -1, NULL, NULL);
-    cap_parser_add_positional(parser, word, DT_STRING, NULL, NULL);
-    cap_parser_add_positional(parser, wordle, DT_STRING, NULL, NULL);
+    cap_parser_add_positional(parser, word, DT_STRING, true, NULL, NULL);
+    cap_parser_add_positional(parser, wordle, DT_STRING, true, NULL, NULL);
 
     const char * args[7] = {"p", foo, bar, foo, "--", bar, bar};
 
@@ -186,8 +186,8 @@ bool test_prefix_custom_0() {
 
     cap_parser_add_flag(parser, "-foo", DT_PRESENCE, 0, -1, NULL, NULL);
     cap_parser_add_flag(parser, "-bar", DT_PRESENCE, 0, -1, NULL, NULL);
-    cap_parser_add_positional(parser, word, DT_STRING, NULL, NULL);
-    cap_parser_add_positional(parser, wordle, DT_STRING, NULL, NULL);
+    cap_parser_add_positional(parser, word, DT_STRING, true, NULL, NULL);
+    cap_parser_add_positional(parser, wordle, DT_STRING, true, NULL, NULL);
 
     const char * args[7] = {"p", foo, bar, foo, "//", bar, bar};
 
@@ -218,8 +218,8 @@ bool test_prefix_custom_1() {
     const char * word = "word";
     const char * wordle = "wordle";
 
-    cap_parser_add_positional(parser, word, DT_STRING, NULL, NULL);
-    cap_parser_add_positional(parser, wordle, DT_STRING, NULL, NULL);
+    cap_parser_add_positional(parser, word, DT_STRING, true, NULL, NULL);
+    cap_parser_add_positional(parser, wordle, DT_STRING, true, NULL, NULL);
 
     cap_parser_set_flag_prefix(parser, "/");
 
@@ -276,8 +276,8 @@ bool test_prefix_custom_2() {
 
     cap_parser_add_flag(parser, foo, DT_PRESENCE, 0, -1, NULL, NULL);
     cap_parser_add_flag(parser, bar, DT_PRESENCE, 0, -1, NULL, NULL);
-    cap_parser_add_positional(parser, word, DT_STRING, NULL, NULL);
-    cap_parser_add_positional(parser, wordle, DT_STRING, NULL, NULL);
+    cap_parser_add_positional(parser, word, DT_STRING, true, NULL, NULL);
+    cap_parser_add_positional(parser, wordle, DT_STRING, true, NULL, NULL);
 
 
     const char * args[7] = {"p", foo, bar, foo, "--", bar, bar};
