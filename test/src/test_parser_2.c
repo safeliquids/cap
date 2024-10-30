@@ -10,7 +10,7 @@
 bool test_one_positional_int() {
     const char * name = "argument";
     ArgumentParser * parser = cap_parser_make_empty();
-    cap_parser_add_positional(parser, name, DT_INT, true, NULL, NULL);
+    cap_parser_add_positional(parser, name, DT_INT, true, false, NULL, NULL);
 
     const char * a[2] = {"program", "100"};
 
@@ -34,7 +34,7 @@ fail:
 bool test_one_positional_double() {
     const char * name = "argument";
     ArgumentParser * parser = cap_parser_make_empty();
-    cap_parser_add_positional(parser, name, DT_DOUBLE, true, NULL, NULL);
+    cap_parser_add_positional(parser, name, DT_DOUBLE, true, false, NULL, NULL);
 
     const char * a[2] = {"program", "3.14e10"};
 
@@ -59,7 +59,7 @@ bool test_one_positional_string() {
     const char * name = "argument";
     const char * value = "word";
     ArgumentParser * parser = cap_parser_make_empty();
-    cap_parser_add_positional(parser, name, DT_STRING, true, NULL, NULL);
+    cap_parser_add_positional(parser, name, DT_STRING, true, false, NULL, NULL);
 
     const char * a[2] = {"program", value};
 
@@ -83,7 +83,7 @@ fail:
 bool test_one_positional_missing() {
     const char * name = "argument";
     ArgumentParser * parser = cap_parser_make_empty();
-    cap_parser_add_positional(parser, name, DT_INT, true, NULL, NULL);
+    cap_parser_add_positional(parser, name, DT_INT, true, false, NULL, NULL);
 
     const char * a[2] = {"program", "10"};
 
@@ -104,7 +104,7 @@ fail:
 bool test_one_positional_not_parseable_int() {
     const char * name = "argument";
     ArgumentParser * parser = cap_parser_make_empty();
-    cap_parser_add_positional(parser, name, DT_INT, true, NULL, NULL);
+    cap_parser_add_positional(parser, name, DT_INT, true, false, NULL, NULL);
 
     const char * a[2] = {"program", "ten"};
 
@@ -125,7 +125,7 @@ fail:
 bool test_one_positional_not_parseable_double() {
     const char * name = "argument";
     ArgumentParser * parser = cap_parser_make_empty();
-    cap_parser_add_positional(parser, name, DT_DOUBLE, true, NULL, NULL);
+    cap_parser_add_positional(parser, name, DT_DOUBLE, true, false, NULL, NULL);
 
     const char * a[2] = {"program", "-3.14.10"};
 

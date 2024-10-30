@@ -107,7 +107,9 @@ typedef struct {
     char * mName;
     /// Stored value of the positional. The object should be considered the 
     /// owner of this TypedUnion value. 
-    TypedUnion mValue;
+    TypedUnion * mValues;
+    size_t mValueCount;
+    size_t mValueAlloc;
 } ParsedPositional;
 
 /**
@@ -181,6 +183,7 @@ typedef struct {
     char * mDescription;
     DataType mType;
     bool mRequired;
+    bool mVariadic;
 } PositionalInfo;
 
 /**

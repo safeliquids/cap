@@ -45,11 +45,13 @@ const char * cap_get_posit_metavar(const PositionalInfo * pi) {
  *        the new object.
  * @param type data type of this argument
  * @param required if the positional is required
+ * @param variadic if the positional is variadic (can take multiple values)
  * @return a new PositionalInfo object
  */
 PositionalInfo * cap_positional_info_make(
     const char * name, const char * meta_var, const char * description,
-    DataType type, bool required) {
+    DataType type, bool required, bool variadic)
+{
     PositionalInfo * info = (PositionalInfo *) malloc(sizeof(PositionalInfo));
     *info = (PositionalInfo) {
         .mName = copy_string(name),
@@ -57,6 +59,7 @@ PositionalInfo * cap_positional_info_make(
 	.mDescription = copy_string(description),
 	.mType = type,
     .mRequired = required,
+    .mVariadic = variadic,
     };
     return info;
 }

@@ -16,7 +16,7 @@ bool test_optional_1() {
     do {
         AddPositionalError e;
         e = cap_parser_add_positional_noexit(
-            p, name, DT_STRING, false, NULL, NULL);
+            p, name, DT_STRING, false, false, NULL, NULL);
         if (e != APE_OK) FB(failed);
 
         ParsingResult res = cap_parser_parse_noexit(p, 2, args);
@@ -47,7 +47,7 @@ bool test_optional_2() {
     do {
         AddPositionalError e;
         e = cap_parser_add_positional_noexit(
-            p, name, DT_STRING, false, NULL, NULL);
+            p, name, DT_STRING, false, false, NULL, NULL);
         if (e != APE_OK) FB(failed);
 
         ParsingResult res = cap_parser_parse_noexit(p, 1, args);
@@ -70,10 +70,10 @@ bool test_optional_required() {
     do {
         AddPositionalError e;
         e = cap_parser_add_positional_noexit(
-            p, "optional", DT_STRING, false, NULL, NULL);
+            p, "optional", DT_STRING, false, false, NULL, NULL);
         if (e != APE_OK) FB(failed);
         e = cap_parser_add_positional_noexit(
-            p, "required", DT_STRING, true, NULL, NULL);
+            p, "required", DT_STRING, true, false, NULL, NULL);
         if (e == APE_OK) FB(failed);
     } while (false);
     cap_parser_destroy(p);
@@ -95,10 +95,10 @@ bool test_required_optional_1() {
     do {
         AddPositionalError e;
         e = cap_parser_add_positional_noexit(
-            p, name_o, DT_INT, true, NULL, NULL);
+            p, name_o, DT_INT, true, false, NULL, NULL);
         if (e != APE_OK) FB(failed);
         e = cap_parser_add_positional_noexit(
-            p, name_r, DT_INT, false, NULL, NULL);
+            p, name_r, DT_INT, false, false, NULL, NULL);
         if (e != APE_OK) FB(failed);
 
         ParsingResult res = cap_parser_parse_noexit(p, 3, args);
@@ -137,10 +137,10 @@ bool test_required_optional_2() {
     do {
         AddPositionalError e;
         e = cap_parser_add_positional_noexit(
-            p, name_o, DT_INT, true, NULL, NULL);
+            p, name_o, DT_INT, true, false, NULL, NULL);
         if (e != APE_OK) FB(failed);
         e = cap_parser_add_positional_noexit(
-            p, name_r, DT_INT, false, NULL, NULL);
+            p, name_r, DT_INT, false, false, NULL, NULL);
         if (e != APE_OK) FB(failed);
 
         ParsingResult res = cap_parser_parse_noexit(p, 2, args);
@@ -174,13 +174,13 @@ bool test_required_optional_required() {
     do {
         AddPositionalError e;
         e = cap_parser_add_positional_noexit(
-            p, name_o, DT_INT, true, NULL, NULL);
+            p, name_o, DT_INT, true, false, NULL, NULL);
         if (e != APE_OK) FB(failed);
         e = cap_parser_add_positional_noexit(
-            p, name_r, DT_INT, false, NULL, NULL);
+            p, name_r, DT_INT, false, false, NULL, NULL);
         if (e != APE_OK) FB(failed);
         e = cap_parser_add_positional_noexit(
-            p, name_oo, DT_INT, true, NULL, NULL);
+            p, name_oo, DT_INT, true, false, NULL, NULL);
         if (e == APE_OK) FB(failed);
     } while (false);
     cap_parser_destroy(p);

@@ -41,6 +41,7 @@ typedef enum {
 } AddFlagAliasError;
 
 typedef enum {
+    APE_ANYTHING_AFTER_VARIADIC,
     APE_DUPLICATE,
     APE_MISSING_NAME,
     APE_MISSING_PARSER,
@@ -840,6 +841,12 @@ void cap_parser_set_help_flag(
  * ones. At parse-time, optional positionals may be missing on the command 
  * line.
  * 
+ * If `variadic` is true, this argument can take multiple values. After one 
+ * variadic argument, no other arguments may be configured. Note that, 
+ * a variadic argument can also be required. At parse-time, all available 
+ * command line words that are not flags are used as values for the variadic 
+ * argument. If it is also required, at least one such word must be found.
+ * 
  * The `metavar` parameter specifies the display name of this argument in help 
  * and usage messages. If `NULL` is given, the argument's `name` is used 
  * instead. The `description` parameter specifies a short explanation of the 
@@ -850,6 +857,7 @@ void cap_parser_set_help_flag(
  * @param name name of the new argument
  * @param type data type of the new argument
  * @param required required-ness of the argument, see above for constraints
+ * @param variadic variadicity of the argument, see above for the constraints
  * @param metavar display name for this argument in help messages
  * @param description short description of the argument's meaning to display 
  *        in automatically generated help messages
@@ -857,7 +865,7 @@ void cap_parser_set_help_flag(
  */
 AddPositionalError cap_parser_add_positional_noexit(
     ArgumentParser * parser, const char * name, DataType type, bool required, 
-    const char * metavar, const char * description)
+    bool variadic, const char * metavar, const char * description)
 {
     if (!parser) {
         return APE_MISSING_PARSER;
@@ -874,6 +882,16 @@ AddPositionalError cap_parser_add_positional_noexit(
             return APE_DUPLICATE;
         }
     }
+    if (parser -> mPositionalCount >= 1u) {
+        const PositionalInfo * last
+            = parser -> mPositionals[parser -> mPositionalCount - 1u];
+        if (last -> mVariadic) {
+            return APE_ANYTHING_AFTER_VARIADIC;
+        }
+        if (required && !last -> mRequired) {
+            return APE_REQUIRED_AFTER_OPTIONAL;
+        }
+    }
     if (parser -> mPositionalCount >= parser -> mPositionalAlloc) {
         size_t alloc_size = parser -> mPositionalAlloc;
         alloc_size = alloc_size ? alloc_size * 2 : 1;
@@ -881,15 +899,8 @@ AddPositionalError cap_parser_add_positional_noexit(
         parser -> mPositionals = (PositionalInfo **) realloc(
             parser -> mPositionals, alloc_size * sizeof(PositionalInfo *));
     }
-    if (parser -> mPositionalCount >= 1u) {
-        const PositionalInfo * last
-            = parser -> mPositionals[parser -> mPositionalCount - 1u];
-        if (required && !last -> mRequired) {
-            return APE_REQUIRED_AFTER_OPTIONAL;
-        }
-    }
     PositionalInfo * new_positional = cap_positional_info_make(
-	name, metavar, description, type, required);
+	name, metavar, description, type, required, variadic);
     parser -> mPositionals[parser -> mPositionalCount++] = new_positional;
 
     return APE_OK;
@@ -913,6 +924,12 @@ AddPositionalError cap_parser_add_positional_noexit(
  * ones. At parse-time, optional positionals may be missing on the command 
  * line.
  * 
+ * If `variadic` is true, this argument can take multiple values. After one 
+ * variadic argument, no other arguments may be configured. Note that, 
+ * a variadic argument can also be required. At parse-time, all available 
+ * command line words that are not flags are used as values for the variadic 
+ * argument. If it is also required, at least one such word must be found.
+ * 
  * The `metavar` parameter specifies the display name of this argument in help 
  * and usage messages. If `NULL` is given, the argument's `name` is used 
  * instead. The `description` parameter specifies a short explanation of the 
@@ -923,16 +940,22 @@ AddPositionalError cap_parser_add_positional_noexit(
  * @param name name of the new argument
  * @param type data type of the new argument
  * @param required if the argument is required
+ * @param variadic variadicity of the argument, see above for the constraints
  * @param metavar display name for this argument in help messages
  * @param description short description of the argument's meaning to display 
  *        in automatically generated help messages
  */
 void cap_parser_add_positional(
-        ArgumentParser * parser, const char * name, DataType type, 
-        bool required, const char * metavar, const char * description) {
+    ArgumentParser * parser, const char * name, DataType type, 
+    bool required, bool variadic, const char * metavar,
+    const char * description)
+{
     AddPositionalError error = cap_parser_add_positional_noexit(
-        parser, name, type, required, metavar, description);
+        parser, name, type, required, variadic, metavar, description);
     switch (error) {
+        case APE_ANYTHING_AFTER_VARIADIC:
+            fprintf(stderr, "cap: cannot add positional after variadic\n");
+            break;
         case APE_DUPLICATE:
             fprintf(stderr, "cap: duplicate positional argument %s\n", name);
             break;
@@ -1354,11 +1377,11 @@ static OnePositionalParsingResult _cap_parser_parse_one_positional(
     res.mError = OPPE_NO_ERROR;
      
     if (positional_index >= parser -> mPositionalCount) {
-	res.mError = OPPE_TOO_MANY;
-	return res;
+        res.mError = OPPE_TOO_MANY;
+        return res;
     }
     const PositionalInfo * posit_info 
-	= parser -> mPositionals[positional_index];
+        = parser -> mPositionals[positional_index];
     res.mPositional = posit_info;
     if (!_cap_parse_word_as_type(arg, posit_info -> mType, &(res.mValue))) {
         res.mError = OPPE_CANNOT_PARSE;
@@ -1447,10 +1470,15 @@ static void _cap_parser_parse_flags_and_positionals(
                         false && "unreachable in "
                         "_cap_parser_parse_flags_and_positionals");
             }
-            cap_pa_set_positional(
+            cap_pa_append_positional(
                 result -> mArguments, posit_info -> mName, 
-            one_posit_res.mValue);
-            ++positional_index;
+                one_posit_res.mValue);
+            if (!posit_info -> mVariadic) {
+                // if the current argument is variadic, do not advance
+                // positional_index. That way more words can be consumed by
+                // this.
+                ++positional_index;
+            }
             index += one_posit_res.mWordsConsumed;
             continue;
         }

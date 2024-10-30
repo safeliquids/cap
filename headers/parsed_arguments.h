@@ -72,7 +72,12 @@ void cap_pa_destroy(ParsedArguments * args) {
         ParsedPositional * pp = args -> mPositionals + i;
         free(pp -> mName);
         pp -> mName = NULL;
-        cap_tu_destroy(&(pp -> mValue));
+        for (size_t j = 0; j < pp -> mValueCount; ++j) {
+            cap_tu_destroy(pp -> mValues + j);
+        }
+        free(pp -> mValues);
+        pp -> mValues = NULL;
+        pp -> mValueAlloc = pp -> mValueCount = 0u;
     }
     args -> mPositionals = NULL;
     args -> mPositionalCount = args -> mPositionalAlloc = 0u;
@@ -226,6 +231,24 @@ bool cap_pa_has_positional(const ParsedArguments * args, const char * name) {
 }
 
 /**
+ * Get the number of values stored for a positional.
+ * 
+ * Checks if `args` contains a positional argument with the name `name`. If
+ * `args` or `name` are `NULL`, or if `name` is not contained in `args`, 
+ * returns zero. Else returns the number of values stored for `name`.
+ * 
+ * @param args object to search
+ * @param name null-terminated name of the argument
+ * @return number of values stored for `name`
+ */
+size_t cap_pa_positional_count(
+    const ParsedArguments * args, const char * name)
+{
+    const ParsedPositional * pp = _cap_pa_get_positional(args, name);
+    return pp ? pp -> mValueCount : 0u;
+}
+
+/**
  * Retrieves a positional argument with the given name.
  * 
  * Checks if `args` contains a positional argument named `name` and, if it is 
@@ -244,7 +267,33 @@ const TypedUnion * cap_pa_get_positional(
     if (!pp) {
         return NULL;
     }
-    return &(pp -> mValue);
+    return pp -> mValues;
+}
+
+/**
+ * Retrieves a positional argument with the given name at the given index.
+ * 
+ * Checks if `args` contains a positional argument named `name`. If it is 
+ * present and there are at least `index + 1` values stored for it returns 
+ * the value at position `index` (starting at zero). Returns `NULL` if that 
+ * argument does not exist or there are not enough values. Also returns `NULL`
+ * if `args` or `name` are `NULL`. Do note that, if a valid pointer to 
+ * a `TypedUnion` object is returned, `args` remains the owner of that object.
+ * 
+ * @param args object to search
+ * @param name null-terminated name of the positional argument
+ * @param index index of the requested value
+ * @return pointer to the argument's value at `index`, or `NULL` if it is
+ *         not found.
+ */
+const TypedUnion * cap_pa_get_positional_i(
+    const ParsedArguments * args, const char * name, size_t index) 
+{
+    const ParsedPositional * pp =  _cap_pa_get_positional(args, name);
+    if (!pp || pp -> mValueCount <= index) {
+        return NULL;
+    }
+    return pp -> mValues + index;
 }
 
 /**
@@ -269,8 +318,11 @@ void cap_pa_set_positional(
     ParsedPositional * pp = _cap_pa_get_positional(args, name);
 
     if (pp) {
-        cap_tu_destroy(&(pp -> mValue));
-        pp -> mValue = value;
+        for (size_t i = 0u; i < pp -> mValueCount; ++i) {
+            cap_tu_destroy(pp -> mValues + i);
+        }
+        pp -> mValues[0] = value;
+        pp -> mValueCount = 1u;
         return;
     }
     
@@ -288,10 +340,64 @@ void cap_pa_set_positional(
 
     ParsedPositional new_positional = (ParsedPositional) {
         .mName = copy_string(name),
-        .mValue = value
+        .mValues = (TypedUnion *) malloc(sizeof(TypedUnion)),
+        .mValueCount = 1u,
+        .mValueAlloc = 1u
     };
+    new_positional.mValues[0] = value;
 
     args -> mPositionals[(args -> mPositionalCount)++] = new_positional;
+}
+
+/**
+ * Adds a value for a positional
+ * 
+ * Adds a new value for a stored positional argument in `args`. If no such
+ * positional exists, it gets also created.
+ * 
+ * In this process, `args` becomes the owner of `value`. Only newly created 
+ * `TypedUnion` objects should be passed to this functions. Passing a (shallow)
+ * copy of a `TypedUnion` with dynamic memory (such as the string type) that is
+ * already owned by a `ParsedArguments` will lead to double-free faults.
+ * 
+ * @param args object to add a value to
+ * @param name null-terminated name of the positional
+ * @param value value to store for this positional
+ */
+void cap_pa_append_positional(
+    ParsedArguments * args, const char * name, const TypedUnion value)
+{
+    if (!args || !name) {
+        return;
+    }
+    ParsedPositional * pp = _cap_pa_get_positional(args, name);
+    if (!pp) {
+        // create new positional
+        size_t alloc = args -> mPositionalAlloc;
+        if (args -> mPositionalCount >= alloc) {
+            alloc = alloc ? alloc * 2 : 4u;
+            args -> mPositionals = (ParsedPositional *) realloc(
+                args -> mPositionals, alloc * sizeof(ParsedPositional));
+            args -> mPositionalAlloc = alloc;
+        }
+        ParsedPositional new_positional = (ParsedPositional) {
+            .mName = copy_string(name),
+            .mValues = NULL,
+            .mValueCount = 0u,
+            .mValueAlloc = 0u,
+        };
+        args -> mPositionals[args -> mPositionalCount] = new_positional;
+        pp = args -> mPositionals + args -> mPositionalCount;
+        ++args -> mPositionalCount;
+    }
+    size_t alloc = pp -> mValueAlloc;
+    if (pp -> mValueCount >= alloc) {
+        alloc = alloc ? alloc * 2 : 1u;
+        pp -> mValues = (TypedUnion *) realloc(
+            pp -> mValues, alloc * sizeof(TypedUnion));
+        pp -> mValueAlloc = alloc;
+    }
+    pp -> mValues[pp -> mValueCount++] = value;
 }
 
 // ============================================================================

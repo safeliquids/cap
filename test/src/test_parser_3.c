@@ -15,10 +15,10 @@ bool test_flags_positionals() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     const char * anotherstring = "anotherstring";
@@ -77,10 +77,10 @@ bool test_flags_positionals_2() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     const char * anotherstring = "anotherstring";
@@ -139,10 +139,10 @@ bool test_flags_positionals_3() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     const char * anotherstring = "anotherstring";
@@ -206,10 +206,10 @@ bool test_flags_positionals_4() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     const char * anotherstring = "anotherstring";
@@ -269,10 +269,10 @@ bool test_flags_positionals_5() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     const char * anotherstring = "anotherstring";
@@ -333,10 +333,10 @@ bool test_flags_positionals_fail() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     const char * anotherstring = "anotherstring";
@@ -371,10 +371,10 @@ bool test_flags_positionals_fail_2() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     const char * anotherstring = "anotherstring";
@@ -409,10 +409,10 @@ bool test_flags_positionals_fail_3() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     // const char * string = "string";
     // const char * anotherstring = "anotherstring";
@@ -448,10 +448,10 @@ bool test_flags_positionals_fail_4() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     // const char * string = "string";
     // const char * anotherstring = "anotherstring";
@@ -486,10 +486,10 @@ bool test_flags_positionals_fail_5() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     const char * anotherstring = "anotherstring";
@@ -524,10 +524,10 @@ bool test_flags_positionals_fail_6() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     // const char * anotherstring = "anotherstring";
@@ -562,10 +562,10 @@ bool test_flags_positionals_fail_7() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     // const char * anotherstring = "anotherstring";
@@ -601,10 +601,10 @@ bool test_flags_positionals_fail_8() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     // const char * anotherstring = "anotherstring";
@@ -640,10 +640,10 @@ bool test_flags_positionals_fail_9() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     // const char * anotherstring = "anotherstring";
@@ -680,10 +680,10 @@ bool test_flags_positionals_fail_10() {
     const char * another = "another";
 
     cap_parser_add_flag(p, a, DT_PRESENCE, 0, 1, NULL, NULL);
-    cap_parser_add_positional(p, word, DT_STRING, true, "WORD", NULL);
+    cap_parser_add_positional(p, word, DT_STRING, true, false, "WORD", NULL);
     cap_parser_add_flag(p, b, DT_DOUBLE, 0, -1, "B", NULL);
     cap_parser_add_flag(p, c, DT_STRING, 1, 2, "P", NULL);
-    cap_parser_add_positional(p, another, DT_INT, true, "ANOTHER", NULL);
+    cap_parser_add_positional(p, another, DT_INT, true, false, "ANOTHER", NULL);
 
     const char * string = "string";
     // const char * anotherstring = "anotherstring";
