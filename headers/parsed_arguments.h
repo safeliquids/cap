@@ -9,14 +9,17 @@
 
 #include "types.h"
 #include "typed_union.h"
+#include "named_values.h"
 
 // ============================================================================
 // === DECLARATION OF PRIVATE FUNCTIONS =======================================
 // ============================================================================
 
-ParsedFlag * _cap_pa_get_flag(const ParsedArguments * args, const char * flag);
-ParsedPositional * _cap_pa_get_positional(
+NamedValues * _cap_pa_get_flag(const ParsedArguments * args, const char * flag);
+NamedValues * _cap_pa_get_positional(
     const ParsedArguments * args, const char * name);
+void _cap_named_values_destroy(NamedValues * nv);
+void _cap_named_values_array_destroy(NamedValuesArray * nva);
 
 // ============================================================================
 // === FACTORY FUNCTION =======================================================
@@ -30,12 +33,8 @@ ParsedPositional * _cap_pa_get_positional(
 ParsedArguments * cap_pa_make_empty() {
     ParsedArguments * pa = (ParsedArguments *) malloc(sizeof(ParsedArguments));
     *pa = (ParsedArguments) {
-        .mFlagCount = 0,
-        .mFlagAlloc = 0,
-        .mFlags = NULL,
-        .mPositionalCount = 0,
-        .mPositionalAlloc = 0,
-        .mPositionals = NULL
+        .mFlags = cap_nva_make_empty(),
+        .mPositionals = cap_nva_make_empty(),
     };
     return pa;
 }
@@ -54,33 +53,14 @@ ParsedArguments * cap_pa_make_empty() {
  */
 void cap_pa_destroy(ParsedArguments * args) {
     if (!args) return;
-    for (size_t i = 0; i < args -> mFlagCount; ++i) {
-        ParsedFlag * pf = args -> mFlags + i;
-        free(pf -> mName);
-        pf -> mName = NULL;
-        for (size_t j = 0; j < pf -> mValueCount; ++j) {
-            cap_tu_destroy(pf -> mValues + j);
-        }
-        free(pf -> mValues);
-        pf -> mValues = NULL;
-        pf -> mValueAlloc = pf -> mValueCount = 0u;
+    if (args -> mFlags) {
+        cap_nva_destroy(args -> mFlags);
+        args -> mFlags = NULL;
     }
-    args -> mFlags = NULL;
-    args -> mFlagCount = args -> mFlagAlloc = 0u;
-
-    for (size_t i = 0; i < args -> mPositionalCount; ++i) {
-        ParsedPositional * pp = args -> mPositionals + i;
-        free(pp -> mName);
-        pp -> mName = NULL;
-        for (size_t j = 0; j < pp -> mValueCount; ++j) {
-            cap_tu_destroy(pp -> mValues + j);
-        }
-        free(pp -> mValues);
-        pp -> mValues = NULL;
-        pp -> mValueAlloc = pp -> mValueCount = 0u;
+    if (args -> mPositionals) {
+        cap_nva_destroy(args -> mPositionals);
+        args -> mPositionals = NULL;
     }
-    args -> mPositionals = NULL;
-    args -> mPositionalCount = args -> mPositionalAlloc = 0u;
     free(args);
 }
 
@@ -114,7 +94,7 @@ bool cap_pa_has_flag(const ParsedArguments * args, const char * flag) {
  * @return number of values stored for the given flag
  */
 size_t cap_pa_flag_count(const ParsedArguments * args, const char * flag) {
-    const ParsedFlag * pf = _cap_pa_get_flag(args, flag);
+    const NamedValues * pf = _cap_pa_get_flag(args, flag);
     if (!pf) return 0u;
     return pf -> mValueCount;
 }
@@ -133,12 +113,8 @@ size_t cap_pa_flag_count(const ParsedArguments * args, const char * flag) {
  */
 const TypedUnion * cap_pa_get_flag(
         const ParsedArguments * args, const char * flag) {
-    const ParsedFlag * pf = _cap_pa_get_flag(args, flag);
-    if (!pf) {
-        return NULL;
-    }
-
-    return pf -> mValues;
+    const NamedValues * pf = _cap_pa_get_flag(args, flag);
+    return cap_nv_get_value(pf);
 }
 
 /**
@@ -157,12 +133,10 @@ const TypedUnion * cap_pa_get_flag(
  */
 const TypedUnion * cap_pa_get_flag_i(
         const ParsedArguments * args, const char * flag, size_t index) {
-    const ParsedFlag * pf = _cap_pa_get_flag(args, flag);
-    if (!pf || index >= pf -> mValueCount) {
-        return NULL;
-    }
-    return pf -> mValues + index;
+    const NamedValues * pf = _cap_pa_get_flag(args, flag);
+    return cap_nv_get_value_i(pf, index);
 }
+
 /**
  * Inserts a new value for the given flag.
  * 
@@ -179,38 +153,7 @@ const TypedUnion * cap_pa_get_flag_i(
 void cap_pa_add_flag(
         ParsedArguments * args, const char * flag, TypedUnion value) {
     if (!args || !flag) return;
-    ParsedFlag * pf = _cap_pa_get_flag(args, flag);
-    if (!pf) {
-        // create a new flag in args
-        if (args -> mFlagAlloc == 0u) {
-            args -> mFlagAlloc = 4;
-            args -> mFlags = (ParsedFlag *) malloc(4 * sizeof(ParsedFlag));
-        }
-        if (args -> mFlagCount >= args -> mFlagAlloc) {
-            args -> mFlagAlloc *= 2;
-            args -> mFlags = (ParsedFlag *) realloc(
-                args -> mFlags, (args -> mFlagAlloc) * sizeof(ParsedFlag));
-        }
-        
-        ParsedFlag new_flag = (ParsedFlag) {
-            .mName = copy_string(flag),
-            .mValueCount = 0u,
-            .mValueAlloc = 1u,
-            .mValues = (TypedUnion *) malloc(sizeof(TypedUnion))
-        };
-
-        args -> mFlags[args -> mFlagCount] = new_flag;
-        pf = args -> mFlags + args -> mFlagCount;
-        ++(args -> mFlagCount);
-    }
-    // now pf definitely is not NULL and points to the flag where the new value 
-    // should be added
-    if (pf -> mValueCount >= pf -> mValueAlloc) {
-        pf -> mValueAlloc *= 2;
-        pf -> mValues = (TypedUnion *) realloc(
-            pf -> mValues, (pf -> mValueAlloc) * sizeof(TypedUnion));
-    }
-    pf -> mValues[pf -> mValueCount++] = value;
+    cap_nva_append_value(args -> mFlags, flag, value);
 }
 
 // ============================================================================
@@ -244,8 +187,8 @@ bool cap_pa_has_positional(const ParsedArguments * args, const char * name) {
 size_t cap_pa_positional_count(
     const ParsedArguments * args, const char * name)
 {
-    const ParsedPositional * pp = _cap_pa_get_positional(args, name);
-    return pp ? pp -> mValueCount : 0u;
+    const NamedValues * pp = _cap_pa_get_positional(args, name);
+    return cap_nv_value_count(pp);
 }
 
 /**
@@ -262,12 +205,10 @@ size_t cap_pa_positional_count(
  * @returns pointer to the argument's value, or `NULL` if it is not found.
  */
 const TypedUnion * cap_pa_get_positional(
-        const ParsedArguments * args, const char * name) {
-    const ParsedPositional * pp =  _cap_pa_get_positional(args, name);
-    if (!pp) {
-        return NULL;
-    }
-    return pp -> mValues;
+    const ParsedArguments * args, const char * name) 
+{
+    const NamedValues * pp =  _cap_pa_get_positional(args, name);
+    return cap_nv_get_value(pp);
 }
 
 /**
@@ -289,11 +230,8 @@ const TypedUnion * cap_pa_get_positional(
 const TypedUnion * cap_pa_get_positional_i(
     const ParsedArguments * args, const char * name, size_t index) 
 {
-    const ParsedPositional * pp =  _cap_pa_get_positional(args, name);
-    if (!pp || pp -> mValueCount <= index) {
-        return NULL;
-    }
-    return pp -> mValues + index;
+    const NamedValues * pp =  _cap_pa_get_positional(args, name);
+    return cap_nv_get_value_i(pp, index);
 }
 
 /**
@@ -314,39 +252,12 @@ const TypedUnion * cap_pa_get_positional_i(
  * @param value the new value. `args` becomes the owner of this object.
  */
 void cap_pa_set_positional(
-        ParsedArguments * args, const char * name, const TypedUnion value) {
-    ParsedPositional * pp = _cap_pa_get_positional(args, name);
-
-    if (pp) {
-        for (size_t i = 0u; i < pp -> mValueCount; ++i) {
-            cap_tu_destroy(pp -> mValues + i);
-        }
-        pp -> mValues[0] = value;
-        pp -> mValueCount = 1u;
+    ParsedArguments * args, const char * name, const TypedUnion value)
+{
+    if (!args || !name) {
         return;
     }
-    
-    if (args -> mPositionalAlloc == 0u) {
-        args -> mPositionalAlloc = 4u;
-        args -> mPositionals = (ParsedPositional *) malloc(
-            4 * sizeof(ParsedPositional));
-    }
-    if (args -> mPositionalCount >= args -> mPositionalAlloc) {
-        args -> mPositionalAlloc *= 2;
-        args -> mPositionals = (ParsedPositional *) realloc(
-            args -> mPositionals,
-            args -> mPositionalAlloc * sizeof(ParsedPositional));
-    }
-
-    ParsedPositional new_positional = (ParsedPositional) {
-        .mName = copy_string(name),
-        .mValues = (TypedUnion *) malloc(sizeof(TypedUnion)),
-        .mValueCount = 1u,
-        .mValueAlloc = 1u
-    };
-    new_positional.mValues[0] = value;
-
-    args -> mPositionals[(args -> mPositionalCount)++] = new_positional;
+    cap_nva_set_value(args -> mPositionals, name, value);
 }
 
 /**
@@ -370,66 +281,29 @@ void cap_pa_append_positional(
     if (!args || !name) {
         return;
     }
-    ParsedPositional * pp = _cap_pa_get_positional(args, name);
-    if (!pp) {
-        // create new positional
-        size_t alloc = args -> mPositionalAlloc;
-        if (args -> mPositionalCount >= alloc) {
-            alloc = alloc ? alloc * 2 : 4u;
-            args -> mPositionals = (ParsedPositional *) realloc(
-                args -> mPositionals, alloc * sizeof(ParsedPositional));
-            args -> mPositionalAlloc = alloc;
-        }
-        ParsedPositional new_positional = (ParsedPositional) {
-            .mName = copy_string(name),
-            .mValues = NULL,
-            .mValueCount = 0u,
-            .mValueAlloc = 0u,
-        };
-        args -> mPositionals[args -> mPositionalCount] = new_positional;
-        pp = args -> mPositionals + args -> mPositionalCount;
-        ++args -> mPositionalCount;
-    }
-    size_t alloc = pp -> mValueAlloc;
-    if (pp -> mValueCount >= alloc) {
-        alloc = alloc ? alloc * 2 : 1u;
-        pp -> mValues = (TypedUnion *) realloc(
-            pp -> mValues, alloc * sizeof(TypedUnion));
-        pp -> mValueAlloc = alloc;
-    }
-    pp -> mValues[pp -> mValueCount++] = value;
+    cap_nva_append_value(args -> mPositionals, name, value);
 }
 
 // ============================================================================
 // === IMPLEMENTATION OF PRIVATE FUNCTIONS ====================================
 // ============================================================================
 
-ParsedFlag * _cap_pa_get_flag(
-        const ParsedArguments * args, const char * flag) {
-    if (!args || !flag) {
+NamedValues * _cap_pa_get_flag(
+    const ParsedArguments * args, const char * flag)
+{
+    if (!args) {
         return NULL;
     }
-    for (size_t i = 0; i < args -> mFlagCount; ++i) {
-        ParsedFlag * pf = args -> mFlags + i;
-        if (strcmp(pf -> mName, flag) == 0) {
-            return pf;
-        }
-    }
-    return NULL;
+    return cap_nva_get(args -> mFlags, flag);
 }
 
-ParsedPositional * _cap_pa_get_positional(
-        const ParsedArguments * args, const char * name) {
-    if (!args || !name) {
+NamedValues * _cap_pa_get_positional(
+    const ParsedArguments * args, const char * name)
+{
+    if (!args) {
         return NULL;
     }
-    for (size_t i = 0; i < args -> mPositionalCount; ++i)  {
-        ParsedPositional * pp = args -> mPositionals + i;
-        if (strcmp(pp -> mName, name) == 0) {
-            return pp;
-        }
-    }
-    return NULL;
+    return cap_nva_get(args -> mPositionals, name);
 }
 
 #endif

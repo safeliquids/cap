@@ -1555,8 +1555,14 @@ static FlagCountCheckResult _cap_parser_check_flag_counts(
 static void _cap_parser_check_flag_and_positional_counts(
         const ArgumentParser * parser, ParsingResult * result) {
     // positional argument presence is checked here
-    // that is easy (for now), because all positionals are required
-    const size_t p_count = result -> mArguments -> mPositionalCount;
+    //
+    // if p_count is at least the number of positionals configured in the
+    // parser, it is all good (NB that a case of too-many-arguments is caught
+    // when actually parsing)
+    //
+    // if p_count is less, find the PositionalInfo of the first argument that
+    // was not parsed. If it is required, fail.
+    const size_t p_count = cap_nva_length(result -> mArguments -> mPositionals);
     if (p_count < parser -> mPositionalCount) {
         const PositionalInfo * first_not_parsed = parser -> mPositionals[p_count];
         if (first_not_parsed -> mRequired) {
