@@ -14,7 +14,8 @@ TEST_OBJ_DIR:=test/obj
 TEST_BIN_DIR:=test/bin
 TESTS:=compilation typed_union pa_flags pa_positionals parser_flags_1 \
 	   parser_flags_2 parser_2 parser_3 parser_config_1 parser_help \
-	   parser_flag_alias parser_optional_arguments parser_variadic_arguments_1
+	   parser_flag_alias parser_optional_arguments parser_variadic_arguments_1 \
+	   parser_variadic_arguments_2
 TEST_TARGETS:=$(patsubst %,test.%,$(TESTS))
 TEST_UNITS:=$(patsubst %,test_%,$(TESTS))
 TEST_SOURCES:=$(patsubst %,$(TEST_SRC_DIR)/%.c,$(TEST_UNITS))
