@@ -41,6 +41,17 @@ typedef enum {
 } AddFlagAliasError;
 
 typedef enum {
+    APE_ANYTHING_AFTER_VARIADIC,
+    APE_DUPLICATE,
+    APE_MISSING_NAME,
+    APE_MISSING_PARSER,
+    APE_NOT_IMPLEMENTED,
+    APE_OK,
+    APE_PRESENCE,
+    APE_REQUIRED_AFTER_OPTIONAL,
+} AddPositionalError;
+
+typedef enum {
     OFPE_NO_ERROR,
     OFPE_UNKNOWN_FLAG,
     OFPE_MISSING_FLAG_VALUE,
@@ -816,17 +827,25 @@ void cap_parser_set_help_flag(
  * Configures a new positional argument.
  * 
  * Configures a new positional argument in `parser` with the name `name`. If a 
- * positional argument with the same name already exists, the program exits 
- * with an error.
+ * positional argument with the same name already exists, returns an 
+ * appropriate error code.
  * 
  * The data type of the argument's value is given by the `type` parameter. If 
- * the type `DT_PRESENCE` is used, the program exits with an error. The 
+ * the type `DT_PRESENCE` is used, an error code is returned. The 
  * positional argument's type is used to parse a value at parse-time. If the 
  * word given on the command line cannot be parsed as that type, parsing 
  * terminates with an error.
  * 
- * All positional arguments are required. If any positional arguments are 
- * missing after parsing all command line words, a parse-time error is raised.
+ * If `required` is false, this argument will be configured as optional. 
+ * Required positionals may not be configured after any number of optional 
+ * ones. At parse-time, optional positionals may be missing on the command 
+ * line.
+ * 
+ * If `variadic` is true, this argument can take multiple values. After one 
+ * variadic argument, no other arguments may be configured. Note that, 
+ * a variadic argument can also be required. At parse-time, all available 
+ * command line words that are not flags are used as values for the variadic 
+ * argument. If it is also required, at least one such word must be found.
  * 
  * The `metavar` parameter specifies the display name of this argument in help 
  * and usage messages. If `NULL` is given, the argument's `name` is used 
@@ -837,32 +856,40 @@ void cap_parser_set_help_flag(
  * @param parser object to configure
  * @param name name of the new argument
  * @param type data type of the new argument
+ * @param required required-ness of the argument, see above for constraints
+ * @param variadic variadicity of the argument, see above for the constraints
  * @param metavar display name for this argument in help messages
  * @param description short description of the argument's meaning to display 
  *        in automatically generated help messages
+ * @return TODO
  */
-void cap_parser_add_positional(
-        ArgumentParser * parser, const char * name, DataType type, 
-        const char * metavar, const char * description) {
+AddPositionalError cap_parser_add_positional_noexit(
+    ArgumentParser * parser, const char * name, DataType type, bool required, 
+    bool variadic, const char * metavar, const char * description)
+{
     if (!parser) {
-        fprintf(stderr, "cap: missing parser\n");
-        exit(-1);
+        return APE_MISSING_PARSER;
     }
     if (!name || strlen(name) == 0) {
-        fprintf(stderr, "cap: invalid argument name\n");
-        exit(-1);
+        return APE_MISSING_NAME;
     }
     if (type == DT_PRESENCE) {
-        fprintf(
-            stderr, "cap: data type DT_PRESENCE is invalid for positional"
-            " arguments\n");
-        exit(-1);
+        return APE_PRESENCE;
     }
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         const PositionalInfo * pi = parser -> mPositionals[i];
         if (!strcmp(pi -> mName, name)) {
-            fprintf(stderr, "cap: duplicate positional argument %s\n", name);
-            exit(-1);
+            return APE_DUPLICATE;
+        }
+    }
+    if (parser -> mPositionalCount >= 1u) {
+        const PositionalInfo * last
+            = parser -> mPositionals[parser -> mPositionalCount - 1u];
+        if (last -> mVariadic) {
+            return APE_ANYTHING_AFTER_VARIADIC;
+        }
+        if (required && !last -> mRequired) {
+            return APE_REQUIRED_AFTER_OPTIONAL;
         }
     }
     if (parser -> mPositionalCount >= parser -> mPositionalAlloc) {
@@ -873,8 +900,87 @@ void cap_parser_add_positional(
             parser -> mPositionals, alloc_size * sizeof(PositionalInfo *));
     }
     PositionalInfo * new_positional = cap_positional_info_make(
-	name, metavar, description, type); 
+	name, metavar, description, type, required, variadic);
     parser -> mPositionals[parser -> mPositionalCount++] = new_positional;
+
+    return APE_OK;
+}
+
+/**
+ * Configures a new positional argument.
+ * 
+ * Configures a new positional argument in `parser` with the name `name`. If a 
+ * positional argument with the same name already exists, the program exits 
+ * with an error.
+ * 
+ * The data type of the argument's value is given by the `type` parameter. If 
+ * the type `DT_PRESENCE` is used, the program exits with an error. The 
+ * positional argument's type is used to parse a value at parse-time. If the 
+ * word given on the command line cannot be parsed as that type, parsing 
+ * terminates with an error.
+ * 
+ * If `required` is false, this argument will be configured as optional. 
+ * Required positionals may not be configured after any number of optional 
+ * ones. At parse-time, optional positionals may be missing on the command 
+ * line.
+ * 
+ * If `variadic` is true, this argument can take multiple values. After one 
+ * variadic argument, no other arguments may be configured. Note that, 
+ * a variadic argument can also be required. At parse-time, all available 
+ * command line words that are not flags are used as values for the variadic 
+ * argument. If it is also required, at least one such word must be found.
+ * 
+ * The `metavar` parameter specifies the display name of this argument in help 
+ * and usage messages. If `NULL` is given, the argument's `name` is used 
+ * instead. The `description` parameter specifies a short explanation of the 
+ * argument that will be displayed in help messages automatically generated by 
+ * the parser. If `NULL` is given, no description is displayed.
+ * 
+ * @param parser object to configure
+ * @param name name of the new argument
+ * @param type data type of the new argument
+ * @param required if the argument is required
+ * @param variadic variadicity of the argument, see above for the constraints
+ * @param metavar display name for this argument in help messages
+ * @param description short description of the argument's meaning to display 
+ *        in automatically generated help messages
+ */
+void cap_parser_add_positional(
+    ArgumentParser * parser, const char * name, DataType type, 
+    bool required, bool variadic, const char * metavar,
+    const char * description)
+{
+    AddPositionalError error = cap_parser_add_positional_noexit(
+        parser, name, type, required, variadic, metavar, description);
+    switch (error) {
+        case APE_ANYTHING_AFTER_VARIADIC:
+            fprintf(stderr, "cap: cannot add positional after variadic\n");
+            break;
+        case APE_DUPLICATE:
+            fprintf(stderr, "cap: duplicate positional argument %s\n", name);
+            break;
+        case APE_MISSING_NAME:
+            fprintf(stderr, "cap: invalid argument name\n");
+            break;
+        case APE_MISSING_PARSER:
+            fprintf(stderr, "cap: missing parser\n");
+            break;
+        case APE_OK:
+            return;
+        case APE_PRESENCE:
+            fprintf(
+                stderr, "cap: data type DT_PRESENCE is invalid for positional"
+                " arguments\n");
+            break;
+        case APE_REQUIRED_AFTER_OPTIONAL:
+            fprintf(
+                stderr, "cap: cannot add required positional after"
+                " optional\n");
+            break;
+        default:
+            assert(false && "unreachable in cap_parser_add_positional");
+    }
+    exit(-1);
 }
 
 // ============================================================================
@@ -959,13 +1065,22 @@ void cap_parser_print_usage(
     if (parser -> mPositionalCount > 0u && parser -> mFlagSeparatorInfo) {
         fprintf(file, " [%s]", _cap_get_shortest_flag_name(parser -> mFlagSeparatorInfo));
     }
+    size_t optionals = 0u;
     for (size_t i = 0; i < parser -> mPositionalCount; ++i) {
         const PositionalInfo * pi = parser -> mPositionals[i];
+        fputc(' ', file);
+        if (!pi -> mRequired) {
+            fputc('[', file);
+            ++optionals;
+        }
         if (pi -> mMetaVar) {
-            fprintf(file, " %s", pi -> mMetaVar);
+            fprintf(file, "%s", pi -> mMetaVar);
             continue;
         }
-        fprintf(file, " <%s>", pi -> mName);
+        fprintf(file, "<%s>", pi -> mName);
+    }
+    for (size_t i = 0; i < optionals; ++i) {
+        fputc(']', file);
     }
     fputc('\n', file);
 }
@@ -1000,7 +1115,7 @@ void cap_parser_print_help(const ArgumentParser * parser, FILE* file) {
     if (parser -> mDescription) {
         fprintf(file, "%s\n", parser -> mDescription);
     }
-    if (parser -> mFlagCount) {
+    if (parser -> mFlagCount || parser -> mHelpFlagInfo || parser -> mFlagSeparatorInfo) {
         fprintf(file, "\nAvailable flags:\n");
     }
     if (parser -> mHelpFlagInfo) {
@@ -1262,11 +1377,11 @@ static OnePositionalParsingResult _cap_parser_parse_one_positional(
     res.mError = OPPE_NO_ERROR;
      
     if (positional_index >= parser -> mPositionalCount) {
-	res.mError = OPPE_TOO_MANY;
-	return res;
+        res.mError = OPPE_TOO_MANY;
+        return res;
     }
     const PositionalInfo * posit_info 
-	= parser -> mPositionals[positional_index];
+        = parser -> mPositionals[positional_index];
     res.mPositional = posit_info;
     if (!_cap_parse_word_as_type(arg, posit_info -> mType, &(res.mValue))) {
         res.mError = OPPE_CANNOT_PARSE;
@@ -1355,10 +1470,15 @@ static void _cap_parser_parse_flags_and_positionals(
                         false && "unreachable in "
                         "_cap_parser_parse_flags_and_positionals");
             }
-            cap_pa_set_positional(
+            cap_pa_append_positional(
                 result -> mArguments, posit_info -> mName, 
-            one_posit_res.mValue);
-            ++positional_index;
+                one_posit_res.mValue);
+            if (!posit_info -> mVariadic) {
+                // if the current argument is variadic, do not advance
+                // positional_index. That way more words can be consumed by
+                // this.
+                ++positional_index;
+            }
             index += one_posit_res.mWordsConsumed;
             continue;
         }
@@ -1435,10 +1555,20 @@ static FlagCountCheckResult _cap_parser_check_flag_counts(
 static void _cap_parser_check_flag_and_positional_counts(
         const ArgumentParser * parser, ParsingResult * result) {
     // positional argument presence is checked here
-    // that is easy (for now), because all positionals are required
-    if (result -> mArguments -> mPositionalCount < parser -> mPositionalCount) {
-        result -> mError = PER_NOT_ENOUGH_POSITIONALS;
-        return;
+    //
+    // if p_count is at least the number of positionals configured in the
+    // parser, it is all good (NB that a case of too-many-arguments is caught
+    // when actually parsing)
+    //
+    // if p_count is less, find the PositionalInfo of the first argument that
+    // was not parsed. If it is required, fail.
+    const size_t p_count = cap_nva_length(result -> mArguments -> mPositionals);
+    if (p_count < parser -> mPositionalCount) {
+        const PositionalInfo * first_not_parsed = parser -> mPositionals[p_count];
+        if (first_not_parsed -> mRequired) {
+            result -> mError = PER_NOT_ENOUGH_POSITIONALS;
+            return;
+        }
     }
     // required flag counts are checked using another function because we also
     // want to know the name of the flag

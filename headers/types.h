@@ -70,45 +70,39 @@ typedef struct {
 } TypedUnion;
 
 /**
- * Stores information about a flag in a `ParsedArguments` object.
+ * Stores values for a flag or positional argument in a `ParsedArguments`
+ * object.
  * 
- * Stores the values associated with a single flag in a `ParsedArguments`
- * object. Objects of this type should never be directly created or accessed
- * by the user.
+ * Stores the values associated with a single flag or positional in
+ * a `ParsedArguments` object. Objects of this type should never be directly
+ * created or accessed by the user.
  * 
  * @see ParsedArguments
  * @see TypedUnion
  */
 typedef struct {
-    /// Name of the flag The object should be considered the 'owner' of 
-    /// this string.
+    /// Name of the flag or posittional. The object should be considered the
+    /// 'owner' of this string.
     char * mName;
-    /// Number of values stored for this flag
+    /// Array of stored values. This object should be considered the owner 
+    /// of these values.
+    TypedUnion * mValues;
+    /// Number of values stored for this flag/positional
     size_t mValueCount;
     /// Number of values that can currently be stored in `mValues`
     size_t mValueAlloc;
-    /// Array of stored values. This object should be considered the owner 
-    /// of these values.
-    TypedUnion * mValues;   
-} ParsedFlag;
+} NamedValues;
 
 /**
- * Stores information about a positional argument in a `ParsedArguments` object.
+ * List of NamedValues instances.
  * 
- * Stores a value for a positional argument. Unlike flags, positionals may only
- * have one `TypedUnion` value.
- * 
- * @see ParsedArguments
- * @see TypedUnion
+ * Stores a list of NamedValues instances.
  */
 typedef struct {
-    /// Name of the argument. The object should be considered the owner of 
-    /// this string.
-    char * mName;
-    /// Stored value of the positional. The object should be considered the 
-    /// owner of this TypedUnion value. 
-    TypedUnion mValue;
-} ParsedPositional;
+    NamedValues ** mItems;
+    size_t mCount;
+    size_t mAlloc;
+} NamedValuesArray;
 
 /**
  * Stores all information about command line arguments after successful
@@ -142,19 +136,10 @@ typedef struct {
  * @see cap_pa_get_positional
  */
 typedef struct {
-    /// Number of differend flags stored
-    size_t mFlagCount;
-    /// Number of flags that can currently be stored in mFlags
-    size_t mFlagAlloc;
     /// Information about individual parsed flags
-    ParsedFlag * mFlags;
-
-    /// Number of positional arguments
-    size_t mPositionalCount;
-    /// Number of arguments that can currently be stored in mPositionals
-    size_t mPositionalAlloc;
+    NamedValuesArray * mFlags;
     /// Information about individual positional arguments
-    ParsedPositional * mPositionals;
+    NamedValuesArray * mPositionals;
 } ParsedArguments;
 
 /**
@@ -180,6 +165,8 @@ typedef struct {
     char * mMetaVar;
     char * mDescription;
     DataType mType;
+    bool mRequired;
+    bool mVariadic;
 } PositionalInfo;
 
 /**
