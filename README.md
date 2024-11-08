@@ -79,17 +79,20 @@ also be configured for our program. See this example.
 ``` c
     /* inside main() */
     ...
-    cap_parser_add_positional(parser, "filename", DT_STRING, NULL, NULL);
+    cap_parser_add_positional(
+        parser, "filename", DT_STRING, true, false, NULL, NULL);
     ...
 ```
 This call signature should look somewhat familiar - the positional argument's 
-name is "filename" and its value is a string. Once again, we don't need to care
-about the function's last two arguments for now.
+name is "filename" and its value is a string. The two boolean parameters
+indicate that it is required (`true`) and that it is not variadic (`false`).
+Once again, we don't need to care about the last two arguments for now.
 
 Arguments defined this way are positional, which means they must appear on the 
-command line in the same order as they were defined. Flags and their values can
-appear in any order, and may even be mixed inbetween positionals.
-Positional arguments are always required and must be found exactly once.
+command line in the same order as they were defined. In contrast, flags and
+their values can appear in any order, and may even be mixed inbetween
+positionals. Since we defined the argument as required and non-variadic, it must
+be found on the command line when parsing, and takes exactly one value.
 
 ### Finally, Parsing
 
@@ -167,7 +170,7 @@ argument.
     /* inside main() */
     ...
     if (!cap_pa_has_positional(parsed_args, "filename")) {
-	do_something_because_no_filename();
+	    do_something_because_no_filename();
 	exit(-1);
     }
     ...
@@ -185,7 +188,7 @@ Other operations regarding positionals are also quite similar.
 
 Most errors related to the parser cause the program to exit with an error
 message. For example, when trying to create a flag that does not start with
-a flag prefix character ('-' by default), you may see something like
+a flag prefix character ('-' by default), it may result in something like
 ``` console
 $ ./myprogram
 cap: invalid flag name - must begin with one of "-"
@@ -209,8 +212,8 @@ Once a parser object is no longer needed, it can be deleted using the function
 `cap_parser_destroy`. Any `ParsedArguments` object returned from 
 `cap_parser_parse` should be deleted using `cap_pa_destroy`. Values retrieved
 from a `ParsedArguments` (such as using `cap_pa_get_flag`) are still owned by 
-that object. That way they do not need to be deleted by the user but they 
-may not be used after the `ParsedArguments` is  deleted.
+that object. That way they do not need to be deleted by the user, however, they 
+*must not* be used after the `ParsedArguments` is  deleted.
 
 ## References
 
