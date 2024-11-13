@@ -1,14 +1,14 @@
 #ifndef __TYPED_UNION_H__
 #define __TYPED_UNION_H__
 
+#include "data_type.h"
+#include "helper_functions.h"
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
-#include "data_type.h"
-#include "types.h"
-#include "helper_functions.h"
 
 // ============================================================================
 // === TYPED UNION ============================================================

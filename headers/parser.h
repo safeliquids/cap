@@ -2,10 +2,10 @@
 #define __PARSER_H__
 
 #include "data_type.h"
+#include "flag_info.h"
 #include "helper_functions.h"
 #include "typed_union.h"
 #include "parsed_arguments.h"
-#include "flag_info.h"
 #include "positional_info.h"
 
 #include <assert.h>

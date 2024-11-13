@@ -4,9 +4,9 @@
 #include "helper_functions.h"
 #include "typed_union.h"
 
-#include "stddef.h"
-#include "stdlib.h"
-#include "string.h"
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
 // ============================================================================
 // === NAMED VALUES ===========================================================

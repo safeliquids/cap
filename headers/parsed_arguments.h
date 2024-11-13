@@ -1,14 +1,15 @@
 #ifndef __PARSED_ARGUMENTS_H__
 #define __PARSED_ARGUMENTS_H__
 
+#include "named_values.h"
+#include "typed_union.h"
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "typed_union.h"
-#include "named_values.h"
 
 // ============================================================================
 // === PARSED ARGUMENTS =======================================================

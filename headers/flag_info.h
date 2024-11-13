@@ -2,8 +2,8 @@
 #define __FLAG_INFO_H__
 
 #include "data_type.h"
-#include "typed_union.h"
 #include "helper_functions.h"
+#include "typed_union.h"
 
 #include <stdio.h>
 #include <stdlib.h>
