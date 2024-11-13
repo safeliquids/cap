@@ -5,7 +5,8 @@ LDFLAGS:=
 
 INC_DIR:=headers
 H:=data_type.h helper_functions.h typed_union.h named_values.h \
-    parsed_arguments.h flag_info.h positional_info.h parser.h
+    named_values_array.h parsed_arguments.h flag_info.h positional_info.h \
+	parser.h
 HEADERS:=$(patsubst %,$(INC_DIR)/%,$H)
 
 TEST_SRC_DIR:=test/src
