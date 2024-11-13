@@ -1,13 +1,51 @@
 #ifndef __NAMED_VALUES_H__
 #define __NAMED_VALUES_H__
 
-#include "types.h"
 #include "helper_functions.h"
 #include "typed_union.h"
 
 #include "stddef.h"
 #include "stdlib.h"
 #include "string.h"
+
+// ============================================================================
+// === NAMED VALUES ===========================================================
+// ============================================================================
+
+/**
+ * Stores values for a flag or positional argument in a `ParsedArguments`
+ * object.
+ * 
+ * Stores the values associated with a single flag or positional in
+ * a `ParsedArguments` object. Objects of this type should never be directly
+ * created or accessed by the user.
+ * 
+ * @see ParsedArguments
+ * @see TypedUnion
+ */
+typedef struct {
+    /// Name of the flag or posittional. The object should be considered the
+    /// 'owner' of this string.
+    char * mName;
+    /// Array of stored values. This object should be considered the owner 
+    /// of these values.
+    TypedUnion * mValues;
+    /// Number of values stored for this flag/positional
+    size_t mValueCount;
+    /// Number of values that can currently be stored in `mValues`
+    size_t mValueAlloc;
+} NamedValues;
+
+/**
+ * List of NamedValues instances.
+ * 
+ * Stores a list of NamedValues instances.
+ */
+typedef struct {
+    NamedValues ** mItems;
+    size_t mCount;
+    size_t mAlloc;
+} NamedValuesArray;
 
 // ============================================================================
 // === NAMED VALUES: DECLARATION OF PRIVATE FUNCTIONS =========================

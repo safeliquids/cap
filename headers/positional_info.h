@@ -1,12 +1,28 @@
 #ifndef __POSITIONAL_INFO_H__
 #define __POSITIONAL_INFO_H__
 
+#include "data_type.h"
 #include "helper_functions.h"
-#include "types.h"
 #include "typed_union.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+
+// ============================================================================
+// === POSITIONAL INFO ========================================================
+// ============================================================================
+
+/**
+ * Configuration of a positional argument in an `ArgumentParser`
+ */
+typedef struct {
+    char * mName;
+    char * mMetaVar;
+    char * mDescription;
+    DataType mType;
+    bool mRequired;
+    bool mVariadic;
+} PositionalInfo;
 
 /**
  * Gets the argument's metavar.

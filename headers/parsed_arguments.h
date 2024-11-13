@@ -7,9 +7,50 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "types.h"
 #include "typed_union.h"
 #include "named_values.h"
+
+// ============================================================================
+// === PARSED ARGUMENTS =======================================================
+// ============================================================================
+
+/**
+ * Stores all information about command line arguments after successful
+ * parsing.
+ * 
+ * This structure is the main result of parsing command line arguments by a
+ * configured parser. All flags and positional arguments are stored with their
+ * values as `TypedUnion` objects. Objects of this type should not be created 
+ * directly. The function `cap_parser_parse` should be used instead. Similarly, 
+ * information about flags and positionals should be obtained using functions 
+ * such as `cap_pa_has_flag` or `cap_pa_get_positional`. 
+ * 
+ * Once created using the `cap_parser_parse` or `cap_pa_make_empty` functions,
+ * the caller owns this object and should dispose of it using `cap_pa_destroy`
+ * once it is no longer needed. When created by `cap_parser_parse`, the pointer
+ * returned by this function must also be freed. (this is an unfortunate
+ * technical limitation.) `cap_pa_destroy` also deletes all data contained in
+ * it, including names of flags, and `TypedUnion`s and strings contained
+ * in them. If any data obtained from a `ParsedArguments` should be usable 
+ * after destroying the object, it must be properly copied.
+ * 
+ * @see ParsedFlag
+ * @see ParsedPositional
+ * @see cap_pa_make_empty
+ * @see cap_pa_destroy
+ * @see cap_pa_has_flag
+ * @see cap_pa_flag_count
+ * @see cap_pa_get_flag
+ * @see cap_pa_get_flag_i
+ * @see cap_pa_has_positional
+ * @see cap_pa_get_positional
+ */
+typedef struct {
+    /// Information about individual parsed flags
+    NamedValuesArray * mFlags;
+    /// Information about individual positional arguments
+    NamedValuesArray * mPositionals;
+} ParsedArguments;
 
 // ============================================================================
 // === DECLARATION OF PRIVATE FUNCTIONS =======================================

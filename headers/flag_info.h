@@ -1,12 +1,31 @@
 #ifndef __FLAG_INFO_H__
 #define __FLAG_INFO_H__
 
-#include "types.h"
+#include "data_type.h"
 #include "typed_union.h"
 #include "helper_functions.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+
+// ============================================================================
+// === FLAG INFO ==============================================================
+// ============================================================================
+
+/**
+ * Configuration of a flag in an `ArgumentParser`
+ */
+typedef struct {
+    char * mName;
+    char * mMetaVar;
+    char * mDescription;
+    DataType mType;
+    int mMinCount;
+    int mMaxCount;
+    char ** mAliases;
+    size_t mAliasCount;
+    size_t mAliasAlloc;
+} FlagInfo;
 
 /**
  * Get a text representation of this flag's argument.

@@ -6,8 +6,53 @@
 #include <string.h>
 #include <assert.h>
 
+#include "data_type.h"
 #include "types.h"
 #include "helper_functions.h"
+
+// ============================================================================
+// === TYPED UNION ============================================================
+// ============================================================================
+
+/**
+ * Elementary storage of values whose type is not known at compile-time.
+ * 
+ * For the purposes of the `cap` library, every value has a data type. That
+ * type is, however, not known at compile-time (because parsers are created by
+ * the user at run-time). Values are stored in a union type and marked with
+ * their type using the DataType enum.
+ * @see DataType.
+ * 
+ * The type of a TypedUnion should always be inspected using functions such as
+ * `cap_tu_is_double()`, and values from them should only be extracted using
+ * functions such as `cap_tu_as_double()`, and after checking the type.
+ * @see cap_tu_is_double
+ * @see cap_tu_is_int
+ * @see cap_tu_is_presence
+ * @see cap_tu_is_string
+ * @see cap_tu_as_double
+ * @see cap_tu_as_int
+ * @see cap_tu_as_string
+ * 
+ * `TypedUnion` objects should always be created using factory functions such
+ * as `cap_tu_make_double()`.
+ * @see cap_tu_make_double
+ * @see cap_tu_make_int
+ * @see cap_tu_make_presence
+ * @see cap_tu_make_string
+ */
+typedef struct {
+    /// type of the stored value
+    DataType mType;
+    union {
+        /// stores the value for DT_INT type
+        int asInt;
+        /// stores the value for DT_DOUBLE type
+        double asDouble;
+        /// stores the value for DT_STRING type
+        char * asString;
+    } mValue;
+} TypedUnion;
 
 // ============================================================================
 // === TYPED UNION CREATION AND DESTRUCTION ===================================
