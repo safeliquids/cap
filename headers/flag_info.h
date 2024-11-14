@@ -1,6 +1,8 @@
 #ifndef __FLAG_INFO_H__
 #define __FLAG_INFO_H__
 
+/** @file */
+
 #include "data_type.h"
 #include "helper_functions.h"
 #include "typed_union.h"

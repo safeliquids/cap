@@ -1,6 +1,8 @@
 #ifndef __POSITIONAL_INFO_H__
 #define __POSITIONAL_INFO_H__
 
+/** @file */
+
 #include "data_type.h"
 #include "helper_functions.h"
 #include "typed_union.h"
@@ -104,7 +106,7 @@ void cap_positional_info_destroy(PositionalInfo * info) {
  * Prints a PositionalInfo to a given file. The format is similar to 
  * conventional help messages. 
  *
- * @file file to print into
+ * @param file file to print into
  * @info object to display
  */
 void cap_print_positional_info(

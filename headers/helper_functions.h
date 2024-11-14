@@ -1,6 +1,8 @@
 #ifndef __HELPER_FUNCTIONS_H__
 #define __HELPER_FUNCTIONS_H__
 
+/** @file */
+
 #include "data_type.h"
 
 #include <stdlib.h>

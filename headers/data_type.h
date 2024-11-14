@@ -1,6 +1,8 @@
 #ifndef __DATA_TYPE_H__
 #define __DATA_TYPE_H__
 
+/** @file */
+
 // ============================================================================
 // === DATA TYPE IDENTIFICATION ===============================================
 // ============================================================================
@@ -13,6 +15,7 @@
  * the user at run-time). Values are stored as Typed Unions,
  * and their type is represented by DataType.
  * @see TypedUnion
+ * @ingroup typed_union
  */
 typedef enum {
     /// integer value, corresponds to the `int` type

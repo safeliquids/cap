@@ -1,6 +1,8 @@
 #ifndef __PARSER_H__
 #define __PARSER_H__
 
+/** @file */
+
 #include "data_type.h"
 #include "flag_info.h"
 #include "helper_functions.h"
