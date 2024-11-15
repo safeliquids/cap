@@ -1,0 +1,22 @@
+name: Test on push to main branch and deploy documentation if successful
+on:
+  push:
+    branches: main
+
+jobs:
+  test:
+    uses: ./.github/workflows/make-test.yaml
+    
+  deploy-docs:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: write
+    steps:
+      - uses: DenverCoder1/doxygen-github-pages-action@v2.0.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          folder: docs
+          config_file: doxyfile
+          doxygen_version: 1.12.0
