@@ -1,0 +1,46 @@
+var group__parser =
+[
+    [ "ArgumentParser", "dd/da8/group__parser.html#d5/db0/structArgumentParser", null ],
+    [ "ParsingResult", "dd/da8/group__parser.html#db/d05/structParsingResult", [
+      [ "mArguments", "dd/da8/group__parser.html#a2f215e675896cba2c128f4c656313675", null ],
+      [ "mError", "dd/da8/group__parser.html#a2c8ac8963ffdeba7523579d2ec98b22c", null ],
+      [ "mFirstErrorWord", "dd/da8/group__parser.html#a48c6f8ff95fa3c73d1123fd6df91f6cf", null ],
+      [ "mSecondErrorWord", "dd/da8/group__parser.html#ab60ebef2cf17c39ca0daaf50604ab93c", null ]
+    ] ],
+    [ "ParsingError", "dd/da8/group__parser.html#ga58a8c0ce4aa40191214d1fa2c009adb3", [
+      [ "PER_NO_ERROR", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3a6f001fa527c8eaf63b34577be447dad8", null ],
+      [ "PER_HELP", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3a796384e69d34756fa38cca83fa8a7092", null ],
+      [ "PER_NOT_ENOUGH_POSITIONALS", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3af9a637955ea2ab0009e71b0662e99efa", null ],
+      [ "PER_TOO_MANY_POSITIONALS", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3a7ca650aa9cc7031a96b216993fa837d7", null ],
+      [ "PER_CANNOT_PARSE_POSITIONAL", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3a50abee75e07b8446b46f1d2010775408", null ],
+      [ "PER_UNKNOWN_FLAG", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3ae40c71ef696f53131aaf88b97d98a826", null ],
+      [ "PER_MISSING_FLAG_VALUE", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3a00280011690dddf0a70a1c9a579f7ae8", null ],
+      [ "PER_CANNOT_PARSE_FLAG", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3a9a6349c74f2cc86c6fe1f123b017c81b", null ],
+      [ "PER_NOT_ENOUGH_FLAGS", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3ac4fb5d8eece8a5211e776eb564a773c2", null ],
+      [ "PER_TOO_MANY_FLAGS", "dd/da8/group__parser.html#gga58a8c0ce4aa40191214d1fa2c009adb3a29753f054e3afe4c93abe4bfd6153835", null ]
+    ] ],
+    [ "cap_parser_add_flag", "dd/da8/group__parser.html#ga984d16e375dd8704a3682e0bcecddfae", null ],
+    [ "cap_parser_add_flag_alias", "dd/da8/group__parser.html#ga0d6eae74cf8edcdfa5897c7ead149ce7", null ],
+    [ "cap_parser_add_flag_alias_noexit", "dd/da8/group__parser.html#gaadf0403567eae7009db5175f7fd29455", null ],
+    [ "cap_parser_add_flag_noexit", "dd/da8/group__parser.html#gae2c06909958e3744b377ac6e484b16e0", null ],
+    [ "cap_parser_add_positional", "dd/da8/group__parser.html#gae510ae93fe4d5048f8566a2801abd156", null ],
+    [ "cap_parser_add_positional_noexit", "dd/da8/group__parser.html#gae9c1516b2e3b6bf3a8d2ce1d4257097e", null ],
+    [ "cap_parser_destroy", "dd/da8/group__parser.html#gaed98696f672b0b407dae5719221fc748", null ],
+    [ "cap_parser_enable_help", "dd/da8/group__parser.html#gae6dcbda38abac6c517adffa18fe2bef9", null ],
+    [ "cap_parser_enable_usage", "dd/da8/group__parser.html#gaec3ea97a7a66869e1e7e2191323e2633", null ],
+    [ "cap_parser_get_program_name", "dd/da8/group__parser.html#ga46213ece4e095432953aadf16f396ea1", null ],
+    [ "cap_parser_make_default", "dd/da8/group__parser.html#gabc09eb179b1199958b0aed13020ec884", null ],
+    [ "cap_parser_make_empty", "dd/da8/group__parser.html#ga13174dda05075576f8e1fffb4356bb49", null ],
+    [ "cap_parser_parse", "dd/da8/group__parser.html#ga67e5587843006db2bd43c2f2ad6c08b3", null ],
+    [ "cap_parser_parse_noexit", "dd/da8/group__parser.html#gacdd6d249ea681d433a52ca47298383ec", null ],
+    [ "cap_parser_print_help", "dd/da8/group__parser.html#ga2b39c8bb05b3084f5e373a6e2c7d4b3e", null ],
+    [ "cap_parser_print_usage", "dd/da8/group__parser.html#ga9947372999a822fffdb60534d2676382", null ],
+    [ "cap_parser_set_custom_help", "dd/da8/group__parser.html#ga50c078c2e4cf4b884e5c60b1b0541383", null ],
+    [ "cap_parser_set_custom_usage", "dd/da8/group__parser.html#gab8d359e80759d76dcdb8546ea1e27341", null ],
+    [ "cap_parser_set_description", "dd/da8/group__parser.html#gaf05828f893b3919311e60582aff8fd10", null ],
+    [ "cap_parser_set_epilogue", "dd/da8/group__parser.html#ga0241869c382f2c422f57649e45119ed3", null ],
+    [ "cap_parser_set_flag_prefix", "dd/da8/group__parser.html#gad9d15cfb79e9c90649edf0d09d52c1d1", null ],
+    [ "cap_parser_set_flag_separator", "dd/da8/group__parser.html#ga30894b0158cf392fc1489b22e52b1223", null ],
+    [ "cap_parser_set_help_flag", "dd/da8/group__parser.html#gaef82bc92775d7902066744534c7f3f86", null ],
+    [ "cap_parser_set_program_name", "dd/da8/group__parser.html#ga08651dbf827fd7867224a35dd2a4b363", null ]
+];
