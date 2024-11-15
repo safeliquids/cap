@@ -1,0 +1,8 @@
+name: Test using make on pull request targetting the main branch
+on:
+  pull_request:
+    branches: main
+
+jobs:
+  test:
+    uses: ./.github/workflows/make-test.yaml
