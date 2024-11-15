@@ -1,6 +1,231 @@
 #ifndef __PARSER_H__
 #define __PARSER_H__
 
+/** 
+ * @file 
+ * @defgroup parser Argument Parser, its Configuration, and Usage
+ * 
+ * An `ArgumentParser` is the main interface of the library. It is an object
+ * that can be configured with flags, positionals, program description and other
+ * information. A configured object is then used to parse arguments from the
+ * command line (the `argc` array). On successful parsing, a `ParsedArguments`
+ * object is created which stores all parsed arguments. Functons related to the
+ * `ArgumentParser` type are prefixed with `cap_parser_`.
+ * 
+ * ## Times
+ * There are two important events related to an `ArgumentParser` object:
+ * configuration-time and parse-time. Configuration-time takes place between the
+ * creation of a parser and its use for parsing command line arguments. During
+ * configuration-time, many properties of a parser can be added or changed.
+ * These configurations are explained in more depth in the section
+ * Configuration. If anything goes wrong with the parser (e.g. the user attempts
+ * to create an invalid configuration), a configuration-time error occurs, which
+ * usually forcefully exits the program.
+ * 
+ * Parse-time takes place when command line arguments (i.e. words stored in
+ * `argv`) are given to a parser in order to create an output. No changes happen
+ * to the parser object at this time. If any problems arise, such as not enough
+ * arguments or not being able to parse a word, a parse-time error occurs. This
+ * also usually exits the program.
+ * 
+ * ## Creation
+ * There are two factory functions for parsers: `cap_parser_make_empty` and
+ * `cap_parser_make_default`. The `default` function creates a parser with some
+ * useful initial configuration, e.g. a help flag. Objects returned from these
+ * functions are otherwise functionally identical. When configured, an
+ * `ArgumentParser` stores dynamically allocated data, so it needs to be
+ * properly disposed of when no longer needed. That is done using the
+ * `cap_parser_destroy` function. `ParsedArguments` objects created by this
+ * parser are independent of it and can be used even after the parser has been
+ * destroyed.
+ * 
+ * ## Configuration
+ * The two main ways of configuring a parser are creating flags and positional
+ * arguments (or "positionals"). Other configurations are
+ * - flag prefix characters,
+ * - special flags,
+ * - custom program name,
+ * - program description,
+ * - automatic or manual creation of help and usage messages, and
+ * - enabling or disabling display of help and/or usage.
+ * 
+ * Do keep in mind that, in this document, "configuring a parser" is a general
+ * expression used for any of the above listed changes to a parser. "Defining" a
+ * flag is the same as "configuring" it, "configuring a flag in the parser", or
+ * "configuring the parser with a flag". Similar terminology is used for other
+ * configurations, such as positionals, descriptions, or a custom usage message.
+ * 
+ * ### Positional Arguments
+ * Positional arguments are inputs to a program given as words on the command
+ * line. Their meaning and interpretation are decided based on their order on
+ * the command line, hence being positional. In this way, positionals are very
+ * similar to arguments given to a function in a programming language such as C.
+ * This order is decided by the programmer at configuration-time: positinoals
+ * are expected on the command line in the same order as they were defined in
+ * the program. Positionals are configured in a parser using the
+ * `cap_parser_add_positional` function.
+ * 
+ * Positionals are defined using a string name, a data type, their
+ * required-ness, and variadicity. The name is used to find its values in a
+ * created `ParsedArguments`. The data type dictates how to interpret the word
+ * on the command line (i.e. in `argv`) and is one of the primitive types
+ * described in @ref typed_union with exception of the `DT_PRESENCE` type (see
+ * later). Required-ness decides if the argument may be
+ * missing on the command line - if it is required, it may not be missing.
+ * Variadicity decides if the positional is allowed to accept multiple values.
+ * (Normally, all positionals take exactly one value if they are not missing.)
+ * 
+ * Required-ness relates to an important concept: at parse-time, once the parser
+ * decides to skip a positional that is is configured as optional, it also skips
+ * parsing all other positionals that were configured after it. This means that
+ * after configuring one optional positional argument, all following positionals
+ * must be configured as optional as well. In other words, a required positional
+ * may not be configured after an optional one. Attempting that creates a
+ * configuration-time error.
+ * 
+ * Variadicity relates to another concept: at parse-time, once the parser
+ * decides that the positional to parse next is variadic, all words that would
+ * be positional values (i.e. they are not flags, see later) are parsed as
+ * values for this positional. This means that, at configuration time, no more
+ * positionals may be configured after a variadic one. Attempting that creates
+ * a configuration-time error. NB that, a variadic argument can also be
+ * required. 
+ * 
+ * Positionals can also have two optional (but useful) properties: a description
+ * and a meta-var. They are both used in automatically created help messages.
+ * The former is a short text explaining the meaning of the argument. The latter
+ * is an intuitive name that represents the value of the argument in the usage
+ * string.
+ * 
+ * ### Flags
+ * Flags differ from positionals in that they are not identified by their
+ * position on the command line. Instead, they are identified by a string
+ * literal (the flag's name, or sometimes informally called "the flag") found on
+ * the command line, and are sometimes followed by a single value. (In that case
+ * this value is not considered a positional value, of course.) This means that,
+ * flags can appear in any order and can even mix inbetween positionals, without
+ * disrupting their (very important) order.
+ * 
+ * A flag is configured in a parser using the `cap_parser_add_flag` function.
+ * That is done with its name, data type, minimum count and maximum count. 
+ * The name is a string literal which must begin with a flag prefix character.
+ * By default that is '-' (dash), but can be changed, see later. The name serves
+ * two purposes:
+ * 1. it identifies the flag in a `ParsedArguments` object, and
+ * 2. it locates the flag and its value on the command line.
+ * 
+ * The data type identifies how the flag's value should be parsed and stored.
+ * Available types are the ones defined in @ref typed_union . Contrary to
+ * positionals, the `DT_PRESENCE` type is allowed here. It is used to define
+ * flags that are not followed by a value. The flag's presence or absence *is*
+ * the information.
+ * 
+ * The minimum and maximum count define how many times the flag can be present
+ * on the command line. For example, setting the minimum to zero configures a
+ * flag that may be omitted on the command line. Conversely, if a flag is
+ * configured with a minimum count greater than zero, and it is not found at
+ * parse-time, a parse-time error occurs. Similarly, a parse-time error occurs
+ * if a flag is found more times than is its maximum count. The maximum count
+ * can be set to `-1` to allow the flag to be parsed up to any number of times.
+ * 
+ * Flags also have two optional properties: a description and a meta-var. Their
+ * meaning is exactly the same as for positionals. The only difference is that,
+ * configuring a meta-var for a flag of the "presence type" has no effect; those
+ * flags take no values, so they are displayed with no meta-variable in
+ * automatically generated help messages.
+ * 
+ * It is also possible to create aliases for configured flags, e.g. to allow
+ * long and short spelling of the flag. That is done using the
+ * `cap_parser_add_flag_alias` function.
+ * 
+ * ### Flag Prefix Characters
+ * By default '-' (dash), these characters identify a word as a flag name. At
+ * parse-time, the parser treates all words it encounters as flags if they begin
+ * with one of the flag prefix characters. That happens even if the word does
+ * not match any configured flag names or aliases. In that case, a parse-time
+ * error is created (with an error message mentioning an "unknown flag"). There
+ * is a way to allow words that begin with a flag prefix character to be parsed
+ * as positional values (e.g. negative numbers). It is called positional-only
+ * mode and is described later, in the Special Flags section.
+ * 
+ * It is possible to change the set of flag prefix characters using the
+ * `parser_set_flag_prefix` function. It is not allowed to do that after any
+ * flags have been configured, however, so calling the function will create a
+ * configuration-time error. This unfortunately includes the default help flag
+ * ('-h') which is present in the default parser.
+ * 
+ * ### Special Flags
+ * Now is a good time to mention some special flags. Namely, that is the
+ * automatic help flag and the flag separator. At configuratino-time, these
+ * behave largely the same as regular flags, but they are handled differently at
+ * parse-time. The main configuration-time difference is that, to define or
+ * change them, the user must call `cap_parser_set_help_flag` and
+ * `cap_parser_set_flag_separator` respectively, instead of the usual
+ * `cap_parser_add_flag` function.
+ *
+ * The automatic help flag ('-h' by default) is used to invoke help text at
+ * parse-time. This can be either a automatically generated help message (the
+ * default), or a custom help text configured by the user. The flag must indeed
+ * be treated in this special way, so that a help message can be printed even if
+ * the command line is "invalid". As mentioned above, the help flag is
+ * configured using the `cap_parser_set_help_flag` function. Compared to
+ * `cap_parser_add_flag`, this allows the user to replace the help flag with a
+ * new configuration, (for instance if the default is not desirable). Aliases
+ * can be configured exactly the same as for regular flags.
+ * 
+ * The flag separator ('--' by default) is a "command" that instructs the parser
+ * to enter positional-only mode at parse-time. In this mode, all words that
+ * have not yet been consumed are treated as positional arguments, even if they
+ * begin with a flag prefix character (see above section Flag Prefix
+ * Characters). This allows for positional argument values that the parser would
+ * otherwise consider as "unknown flag", such as negative numbers. Again, it is
+ * necessary to treat the flag separator in a special way, because it influences
+ * parser logic at parse-time. The function `cap_parser_set_flag_separator` is
+ * used to configure this special flag instead of the usual
+ * `cap_parser_add_flag`. This, similarly to the help flag, allows the user to
+ * re-configure or disable it. Creating aliases is also allowed.
+ * 
+ * ### Custom Program Name and Desctiption
+ * The parser sometimes needs to display the program name, e.g. when a value
+ * cannot be parsed as the desired type and an error message is in order. By
+ * default, the parser extracts the program name from the first string in
+ * `argv`. However, it is possible to override this and configure a program name
+ * explicitly. This can be done using the `cap_parser_set_program_name` function.
+ * 
+ * Similarly, a description of the program can be configured. This is a text
+ * displayed at the top of an automatically generated help message (see later).
+ * It is also possible to configure an epilogue, a text do be displayed at the
+ * very end of the help message. These texts are empty by default and can be
+ * configured using `cap_parser_set_description` and `cap_parser_set_epilogue`
+ * functions respectively.
+ * 
+ * ### Automatic and Manual Help Texts
+ * When encountering a parse-time error, the parser is able to print a help message before exiting the program. By default, this message is automatically generated on-demand based on configured flags and positionals, but it can be explicitly changed to anything the user wants. That is done using `cap_parser_set_custom_help`. The automatic help looks similar to this.
+ * ```
+ * usage:
+ *     prog.exe [ -f FORMAT ] INPUT_FILE [ OUTPUT_FILE ]
+ * 
+ * Prog is a simple tool for doing useful things.
+ * 
+ * Available Flags:
+ * -f FORMAT
+ *     A c-style format string
+ * 
+ * Positional Arguments:
+ * INPUT_FILE
+ *     Read input from this file
+ * OUTPUT_FILE
+ *     Write output to this file. If missing, print to standard output.
+ * ```
+ * 
+ * TODO
+ * 
+ * ## Parsing
+ * 
+ * TODO
+ * 
+ */
+
 #include "data_type.h"
 #include "flag_info.h"
 #include "helper_functions.h"
@@ -18,6 +243,11 @@
 // ============================================================================
 // === PARSER: DEFINITION OF TYPES ============================================
 // ============================================================================
+
+/**
+ * @addtogroup parser
+ * @{
+ */
 
 /**
  * Main object for parsing given command line arguments.
@@ -771,7 +1001,7 @@ AddFlagError cap_parser_add_flag_noexit(
  *        command line. Must be at least zero.
  * @param max_count maximum number of times the flag may be given on the 
  *        command line. Must be either negative or at least `min_count`.
- * @param metavar display name of the flag's value in help messages
+ * @param meta_var display name of the flag's value in help messages
  * @param description short description of the flag's meaning to display in 
  *        automatically generated help messages.
  */
@@ -1746,5 +1976,9 @@ static void _cap_parser_check_flag_and_positional_counts(
 	    assert(false && "unreachable in cap_parser_parse_noexit");
     }
 }
+
+/**
+ * @}
+ */
 
 #endif

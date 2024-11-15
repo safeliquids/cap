@@ -9,6 +9,8 @@ H:=data_type.h helper_functions.h typed_union.h named_values.h \
 	parser.h
 HEADERS:=$(patsubst %,$(INC_DIR)/%,$H)
 
+DOCS_DIR:=docs
+
 TEST_SRC_DIR:=test/src
 TEST_INC_DIR:=test/include
 TEST_OBJ_DIR:=test/obj
@@ -38,6 +40,9 @@ slicer.exe: slicer.c
 
 test: $(TEST_TARGETS)
 
+documentation: $(HEADERS) doxyfile
+	doxygen -q
+
 # this is a static pattern rule, those are pretty awesome!
 $(TEST_TARGETS): test.%: $(TEST_BIN_DIR)/test_%.exe
 	./$<
@@ -58,9 +63,11 @@ clean:
 ifeq ($(OS), Windows_NT)
 	pwsh -c 'remove-item $(firstword $(GENERATED)) $(patsubst %,$(COMMA) %,$(wordlist 2, 1000, $(GENERATED))) || {};'
 	pwsh -c 'remove-item $(firstword $(GENERATED_DIRS)) $(patsubst %,$(COMMA) %,$(wordlist 2, 1000, $(GENERATED_DIRS))) || {};'
+	pwsh -c 'remove-item -force -recurse $(DOCS_DIR) || {};'
 else
 	rm -f $(GENERATED)
 	rm -f -d $(GENERATED_DIRS)
+	rm -rf $(DOCS_DIR)
 endif
 
-.PHONY: all clean test $(TEST_TARGETS)
+.PHONY: all clean test $(TEST_TARGETS) documentation

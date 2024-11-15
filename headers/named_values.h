@@ -1,12 +1,35 @@
 #ifndef __NAMED_VALUES_H__
 #define __NAMED_VALUES_H__
 
+/**
+ * @file
+ * @defgroup named_values Data Storage as Named Values
+ * 
+ * The `NamedValues` structure associates one or more values associated with a
+ * string identifier. It is used internally in a `ParsedArguments` object and
+ * users never need to interact with it directly. The library offers several
+ * functions for creating, deleting, and modifying `NamedValues` objects. They
+ * are prefixed with `cap_nv_`.
+ * 
+ * `TypedUnion` objects are used to store data. The name is stored as a
+ * null-terminated string, and it is owned by the `NamedValues` object. For that
+ * reason instances of `NamedValues` should be created using `cap_nv_make()`
+ * or `cap_nv_make_empty()` and destroyed using `cap_nv_destroy()`. Calling the
+ * destructor function ivalidates all data obtained from the object, e.g.
+ * pointers to `TypedUnion`s.
+ */
+
 #include "helper_functions.h"
 #include "typed_union.h"
 
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+
+/**
+ * @addtogroup named_values
+ * @{
+ */
 
 // ============================================================================
 // === NAMED VALUES ===========================================================
@@ -40,7 +63,7 @@ typedef struct {
 // === NAMED VALUES: DECLARATION OF PRIVATE FUNCTIONS =========================
 // ============================================================================
 
-NamedValues * _cap_nv_make_empty_inner(const char * name);
+static NamedValues * _cap_nv_make_empty_inner(const char * name);
 
 // ============================================================================
 // === NAMED VALUES ===========================================================
@@ -202,7 +225,7 @@ const TypedUnion * cap_nv_get_value(const NamedValues * nv) {
 // === NAMED VALUES: IMPLEMENTATION OF PRIVATE FUNCTIONS ======================
 // ============================================================================
 
-NamedValues * _cap_nv_make_empty_inner(const char * name) {
+static NamedValues * _cap_nv_make_empty_inner(const char * name) {
     NamedValues * nv = (NamedValues *) malloc(sizeof(NamedValues));
     nv -> mName = copy_string(name);
     nv -> mValues = NULL;
@@ -210,5 +233,8 @@ NamedValues * _cap_nv_make_empty_inner(const char * name) {
     return nv;
 }
 
-#endif
+/**
+ * @}
+ */
 
+#endif

@@ -1,6 +1,33 @@
 #ifndef __PARSED_ARGUMENTS_H__
 #define __PARSED_ARGUMENTS_H__
 
+/**
+ * @file
+ * @defgroup parsed_arguments ParsedArguments: Storage of Parsed Flags and Arguments
+ * 
+ * `ParsedArguments` is the result of parsing arguments given on the command
+ * line. An object of this type is usually returned from a configured
+ * `ArgumentParser` after successful parsing. It should contain information
+ * about all configured flags and arguments that were found on the command line.
+ * The library offers several functions for creating, deleting, modifying and
+ * querying these objects. They are prefixed with `cap_pa_`.
+ * 
+ * `ParsedArguments` objects are able to store arguments of two kinds: flags and
+ * positional arguments (also called positionals). Each stored argument has a
+ * string name and a set of values. The name is most commonly used to query the
+ * `ParsedArguments` for the given argument (e.g. if it is present). Values are
+ * stored as `TypedUnion` objects, and pointers to those objects can be returned
+ * from a search function call on the `ParsedArguments`, e.g. `cap_pa_get_flag`.
+ * This way, `ParsedArguments` implements a pair of primitive multi-sets of
+ * `string --> TypedUnion` (one such mapping for flags and one for positionals.)
+ * 
+ * An empty `ParsedArguments` object can be created using `cap_pa_make_empty()`.
+ * This is normally done at parse-time by the parser so users do not need to
+ * create it manually. Objects should be disposed of using `cap_pa_destroy` when
+ * no longer needed. This call invalidates all information obtained from the
+ * object, e.g. pointers to `TypedUnion`s that were stored as argument values.
+ */
+
 #include "named_values.h"
 #include "named_values_array.h"
 #include "typed_union.h"
@@ -10,6 +37,11 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+
+/**
+ * @addtogroup parsed_arguments
+ * @{
+ */
 
 // ============================================================================
 // === PARSED ARGUMENTS =======================================================
@@ -347,5 +379,9 @@ NamedValues * _cap_pa_get_positional(
     }
     return cap_nva_get(args -> mPositionals, name);
 }
+
+/**
+ * @}
+ */
 
 #endif

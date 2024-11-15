@@ -1,12 +1,34 @@
 #ifndef __NAMED_VALUES_ARRAY_H__
 #define __NAMED_VALUES_ARRAY_H__
 
+/**
+ * @file
+ * @addtogroup named_values
+ * 
+ * `NamedValuesArray` stores several `NamedValues` objects, implementing a
+ * primitive multi-map of `string --> TypedUnion`. `NamedValuesArray` objects
+ * are used internally by `ParsedArguments` and users of the library never needs
+ * to interact with them directly. Regardless, the API offers several functions
+ * for creating, deleting, and modifying these objects. These functions are
+ * prefixed with `cap_nva_`.
+ * 
+ * `NamedValuesArray` objects should be created using `cap_nva_make_empty()` and
+ * deleted using `cap_nva_destroy()`. After destroying the object, all
+ * information obtained from it is invalid. e.g. pointers to stored
+ * `TypedUnion`s.
+ */
+
 #include "named_values.h"
 #include "typed_union.h"
 
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+
+/**
+ * @addtogroup named_values
+ * @{
+ */
 
 // ============================================================================
 // === NAMED VALUES ARRAY =====================================================
@@ -27,7 +49,7 @@ typedef struct {
 // === NAMED VALUES ARRAY: DECLARATION OF PRIVATE FUNCTIONS ===================
 // ============================================================================
 
-void _cap_nva_append_item(
+static void _cap_nva_append_item(
     NamedValuesArray * nva, const char * name, const TypedUnion value);
 
 // ============================================================================
@@ -170,7 +192,7 @@ void cap_nva_set_value(
 // === NAMED VALUES ARRAY: IMPLEMENTATION OF PRIVATE FUNCTIONS ================
 // ============================================================================
 
-void _cap_nva_append_item(
+static void _cap_nva_append_item(
     NamedValuesArray * nva, const char * name, const TypedUnion value)
 {
     static const size_t INIT_ALLOC = 4u;
@@ -184,5 +206,9 @@ void _cap_nva_append_item(
     // since we know that name is not NULL, this will not create NULL
     nva -> mItems[nva -> mCount++] = cap_nv_make(name, value);
 }
+
+/**
+ * @}
+ */
 
 #endif
