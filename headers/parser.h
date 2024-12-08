@@ -262,6 +262,7 @@
  * character. Once parsing enters positional-only mode, it cannot return to
  * normal mode.
  * 
+ * ### Parsing Errors
  * Parsing can end with an error. When parsing a flag, one of the following
  * errors can occur:
  * 1. The there is no flag with that name.
